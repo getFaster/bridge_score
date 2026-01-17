@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse
 from fastapi import Request
 import json
@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 import uvicorn
 from scoring import calculate_bridge_score, calculate_vulnerability, Vul, calculate_imp, calculate_vp
 from movements import round_robin, assign_table_pairs, swiss_pairing
+import secrets
+from datetime import datetime, timedelta
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,6 +20,15 @@ async def lifespan(app: FastAPI):
                         name TEXT NOT NULL,
                         score INTEGER NOT NULL,
                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    
+    # Create session tokens table
+    app.state.cursor.execute('''CREATE TABLE IF NOT EXISTS session_tokens
+                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        token TEXT UNIQUE NOT NULL,
+                        tournament_id INTEGER NOT NULL,
+                        table_id INTEGER NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        expires_at DATETIME NOT NULL)''')
     
     # Check if tournaments table exists and migrate if needed
     app.state.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tournaments'")
@@ -117,6 +128,34 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Authentication verification function
+async def verify_token(request: Request) -> dict:
+    """Dependency to verify authentication token."""
+    # Get token from Authorization header
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization token")
+    
+    token = auth_header.replace('Bearer ', '')
+    
+    cursor = request.app.state.cursor
+    
+    # Check if token exists and is not expired
+    cursor.execute("""SELECT tournament_id, table_id, expires_at FROM session_tokens 
+                      WHERE token = ?""", (token,))
+    result = cursor.fetchone()
+    
+    if not result:
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
+    
+    tournament_id, table_id, expires_at = result
+    
+    # Check if token is expired
+    if datetime.fromisoformat(expires_at) < datetime.now():
+        raise HTTPException(status_code=401, detail="Authentication token expired")
+    
+    return {"tournament_id": tournament_id, "table_id": table_id, "token": token}
+
 @app.get("/")
 async def read_index():
     return FileResponse('html/index.html')
@@ -138,7 +177,8 @@ async def read_score_entry():
     return FileResponse('html/score_entry.html')
 
 @app.post("/api/scores")
-async def get_scores(request: Request):
+async def get_scores(request: Request, auth: dict = Depends(verify_token)):
+    """Submit board scores - requires authentication."""
     data = await request.json()
     name = data.get('name')
     score = data.get('score')
@@ -149,7 +189,7 @@ async def get_scores(request: Request):
     cursor.execute("INSERT INTO scores (name, score) VALUES (?, ?)", (name, score))
     conn.commit()
 
-    print(f"Name: {name}, Score: {score}")
+    print(f"Name: {name}, Score: {score} (Table {auth['table_id']})")
     return {"status": "success", "name": name, "score": score}
 
 @app.post("/api/tournament/setup")
@@ -343,7 +383,8 @@ async def get_table_boards(table_id: int, round_number: int, request: Request):
     return {"boards": boards}
 
 @app.post("/api/score/submit")
-async def submit_score(request: Request):
+async def submit_score(request: Request, auth: dict = Depends(verify_token)):
+    """Submit board scores - requires authentication."""
     data = await request.json()
     
     table_id = data.get('tableId')
@@ -352,6 +393,10 @@ async def submit_score(request: Request):
     contract = data.get('contract')
     declarer = data.get('declarer')
     result = data.get('result')
+    
+    # Verify the table_id matches the authenticated token
+    if table_id != auth['table_id']:
+        raise HTTPException(status_code=403, detail="Not authorized to submit scores for this table")
     
     if not all([table_id, round_number, board_number, contract, declarer, result is not None]):
         return {"status": "error", "message": "Missing required fields"}
@@ -708,8 +753,8 @@ async def get_round_all_scores(tournament_id: int, round_number: int, request: R
     return {"scores": scores}
 
 @app.post("/api/score/update")
-async def update_score(request: Request):
-    """Update an existing score entry."""
+async def update_score(request: Request, auth: dict = Depends(verify_token)):
+    """Update an existing score entry - requires authentication."""
     data = await request.json()
     
     score_id = data.get('scoreId')
@@ -871,7 +916,7 @@ async def set_table_password(request: Request):
 
 @app.post("/api/table/verify_password")
 async def verify_table_password(request: Request):
-    """Verify password for a table."""
+    """Verify password for a table and return authentication token."""
     data = await request.json()
     
     tournament_id = data.get('tournamentId')
@@ -882,18 +927,32 @@ async def verify_table_password(request: Request):
         return {"status": "error", "message": "Missing required fields"}
     
     cursor = request.app.state.cursor
+    conn = request.app.state.conn
     
     cursor.execute("""SELECT password FROM table_passwords 
                       WHERE tournament_id = ? AND table_id = ?""",
                    (tournament_id, table_id))
     result = cursor.fetchone()
     
+    password_correct = False
     if not result:
         # No password set for this table - allow access
-        return {"status": "success", "authenticated": True, "message": "No password required"}
+        password_correct = True
+    elif result[0] == password:
+        password_correct = True
     
-    if result[0] == password:
-        return {"status": "success", "authenticated": True}
+    if password_correct:
+        # Generate session token
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now() + timedelta(hours=8)  # Token valid for 8 hours
+        
+        # Store token in database
+        cursor.execute("""INSERT INTO session_tokens (token, tournament_id, table_id, expires_at)
+                          VALUES (?, ?, ?, ?)""",
+                       (token, tournament_id, table_id, expires_at.isoformat()))
+        conn.commit()
+        
+        return {"status": "success", "authenticated": True, "token": token}
     else:
         return {"status": "error", "authenticated": False, "message": "Incorrect password"}
 

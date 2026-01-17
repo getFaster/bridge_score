@@ -14,13 +14,6 @@
             background-color: #f5f5f5;
         }
 
-        .container {
-            background-color: white;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
         h1 {
             color: #2c3e50;
             text-align: center;
@@ -472,8 +465,8 @@
                 const data = await response.json();
 
                 if (data.authenticated) {
-                    // Store authentication in sessionStorage
-                    sessionStorage.setItem(`table_${selectedTableId}_auth`, 'true');
+                    // Store authentication token in sessionStorage
+                    sessionStorage.setItem(`table_${selectedTableId}_token`, data.token);
                     const tableId = selectedTableId; // Store before closing modal
                     closePasswordModal();
                     navigateToScoreEntry(tableId);

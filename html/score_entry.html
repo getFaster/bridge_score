@@ -586,8 +586,8 @@
                 }
 
                 // Check if already authenticated in this session
-                const sessionAuth = sessionStorage.getItem(`table_${currentTableId}_auth`);
-                if (sessionAuth === 'true') {
+                const token = sessionStorage.getItem(`table_${currentTableId}_token`);
+                if (token) {
                     return true;
                 }
 
@@ -637,8 +637,8 @@
                 const data = await response.json();
 
                 if (data.authenticated) {
-                    // Store authentication in sessionStorage
-                    sessionStorage.setItem(`table_${currentTableId}_auth`, 'true');
+                    // Store authentication token in sessionStorage
+                    sessionStorage.setItem(`table_${currentTableId}_token`, data.token);
                     document.getElementById('passwordModal').style.display = 'none';
                     document.querySelector('.container').classList.remove('page-blocked');
 
@@ -1000,11 +1000,19 @@
             };
 
             try {
+                const token = sessionStorage.getItem(`table_${currentTableId}_token`);
+                const headers = {
+                    'Content-Type': 'application/json',
+                };
+
+                // Add authorization token if available
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
                 const response = await fetch('/api/score/submit', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: headers,
                     body: JSON.stringify(scoreData)
                 });
 
