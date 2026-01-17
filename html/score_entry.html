@@ -901,7 +901,7 @@
         }
 
         function calculateScore() {
-            const { level, suit, declarer, vulnerability, resultMode, tricks } = selectedContract;
+            const { level, suit, declarer, double, vulnerability, resultMode, tricks } = selectedContract;
 
             // Determine if declarer is vulnerable
             let vulnerable = false;
@@ -914,6 +914,8 @@
             }
 
             const result = resultMode === 'made' ? tricks : -tricks;
+            const isDoubled = double === 'X';
+            const isRedoubled = double === 'XX';
 
             // Contract made
             if (result >= 0) {
@@ -929,7 +931,14 @@
                     return 0;
                 }
 
-                // Game bonus
+                // Apply double/redouble multiplier to base score
+                if (isDoubled) {
+                    baseScore *= 2;
+                } else if (isRedoubled) {
+                    baseScore *= 4;
+                }
+
+                // Game bonus (use doubled/redoubled base score for game calculation)
                 const gameBonus = baseScore >= 100 ? (vulnerable ? 500 : 300) : 50;
 
                 // Slam bonus
@@ -941,16 +950,64 @@
                 }
 
                 // Overtrick score
-                const overtrickValue = (suit === 'C' || suit === 'D') ? 20 : 30;
-                const overtrickScore = result * overtrickValue;
+                let overtrickScore = 0;
+                if (isDoubled) {
+                    // Doubled overtricks: 100 non-vul, 200 vul
+                    overtrickScore = result * (vulnerable ? 200 : 100);
+                } else if (isRedoubled) {
+                    // Redoubled overtricks: 200 non-vul, 400 vul
+                    overtrickScore = result * (vulnerable ? 400 : 200);
+                } else {
+                    // Normal overtricks
+                    const overtrickValue = (suit === 'C' || suit === 'D') ? 20 : 30;
+                    overtrickScore = result * overtrickValue;
+                }
 
-                return baseScore + gameBonus + slamBonus + overtrickScore;
+                // Double/redouble bonus for making contract
+                let doubleBonus = 0;
+                if (isDoubled) {
+                    doubleBonus = 50;
+                } else if (isRedoubled) {
+                    doubleBonus = 100;
+                }
+
+                return baseScore + gameBonus + slamBonus + overtrickScore + doubleBonus;
             }
             // Contract failed
             else {
                 const undertricks = Math.abs(result);
-                const penalty = vulnerable ? undertricks * 100 : undertricks * 50;
-                return -penalty;
+
+                if (!isDoubled && !isRedoubled) {
+                    // Non-doubled penalties
+                    const penalty = vulnerable ? undertricks * 100 : undertricks * 50;
+                    return -penalty;
+                } else {
+                    // Doubled/redoubled penalties
+                    let penalty = 0;
+                    const multiplier = isRedoubled ? 2 : 1;
+
+                    for (let i = 1; i <= undertricks; i++) {
+                        if (vulnerable) {
+                            // Vulnerable doubled: 200, 300, 300, 300...
+                            if (i === 1) {
+                                penalty += 200 * multiplier;
+                            } else {
+                                penalty += 300 * multiplier;
+                            }
+                        } else {
+                            // Non-vulnerable doubled: 100, 200, 200, 300, 300...
+                            if (i === 1) {
+                                penalty += 100 * multiplier;
+                            } else if (i === 2 || i === 3) {
+                                penalty += 200 * multiplier;
+                            } else {
+                                penalty += 300 * multiplier;
+                            }
+                        }
+                    }
+
+                    return -penalty;
+                }
             }
         }
 
