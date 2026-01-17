@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table Score Entry</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .table-info {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+
+        .board-selector {
+            margin-bottom: 30px;
+        }
+
+        .board-selector label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .board-selector select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .contract-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #34495e;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            background-color: white;
+            transition: all 0.2s;
+            min-width: 60px;
+        }
+
+        button:hover {
+            background-color: #ecf0f1;
+        }
+
+        button.selected {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .suit-button {
+            font-size: 20px;
+        }
+
+        .suit-spade,
+        .suit-club {
+            color: #000;
+        }
+
+        .suit-heart,
+        .suit-diamond {
+            color: #e74c3c;
+        }
+
+        button.selected.suit-spade,
+        button.selected.suit-club {
+            background-color: #2c3e50;
+            border-color: #2c3e50;
+        }
+
+        button.selected.suit-heart,
+        button.selected.suit-diamond {
+            background-color: #e74c3c;
+            border-color: #e74c3c;
+        }
+
+        .declarer-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .vulnerability-section {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .result-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .result-section input {
+            width: 80px;
+            padding: 10px;
+            font-size: 16px;
+            text-align: center;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .contract-display {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+            min-height: 30px;
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 15px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .submit-button:hover {
+            background-color: #229954;
+        }
+
+        .submit-button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .results-table {
+            width: 100%;
+            margin: 20px 0;
+            border-collapse: collapse;
+            background-color: white;
+        }
+
+        .results-table th {
+            background-color: #34495e;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .results-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .results-table tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .submit-scores-button {
+            width: 100%;
+            padding: 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+
+        .submit-scores-button:hover {
+            background-color: #2980b9;
+        }
+
+        .submit-scores-button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .match-results {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .match-results h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+
+        .match-results .score-line {
+            font-size: 18px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+
+        .round-notification {
+            background-color: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .round-notification strong {
+            color: #856404;
+        }
+
+        .round-notification button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #ffc107;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .round-notification button:hover {
+            background-color: #e0a800;
+        }
+
+        /* Password Modal Styles */
+        .password-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .password-modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .password-modal-content h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .password-modal-content input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 15px 0;
+            box-sizing: border-box;
+        }
+
+        .password-modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .password-modal-buttons button {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .password-modal-buttons .btn-submit {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .password-modal-buttons .btn-submit:hover {
+            background-color: #2980b9;
+        }
+
+        .password-modal-buttons .btn-cancel {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .password-modal-buttons .btn-cancel:hover {
+            background-color: #7f8c8d;
+        }
+
+        .password-error {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .page-blocked {
+            filter: blur(5px);
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Main</a>
+        <h1>Score Entry</h1>
+        <div class="table-info" id="tableInfo">Table X | Round Y</div>
+        <div class="table-info" id="matchupInfo" style="font-size: 16px; margin-top: -10px;"></div>
+
+        <!-- Round Change Notification -->
+        <div class="round-notification" id="roundNotification">
+            <strong>⚠️ Round has changed!</strong>
+            <p>The director has changed to a different round.</p>
+            <button onclick="reloadPage()">Reload Page</button>
+        </div>
+
+        <!-- Match Results Display -->
+        <div class="match-results" id="matchResults">
+            <h3>🏆 Match Results</h3>
+            <div id="matchResultsContent"></div>
+        </div>
+
+        <!-- Results Table -->
+        <div id="resultsTableContainer">
+            <h3>Results Entered:</h3>
+            <table class="results-table" id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>Board</th>
+                        <th>Contract</th>
+                        <th>Declarer</th>
+                        <th>Result</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody">
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #999;">No results yet</td>
+                    </tr>
+                </tbody>
+            </table>
+            <button class="submit-scores-button" id="submitScoresBtn" onclick="submitAllScores()" disabled>Submit Scores
+                to Complete Match</button>
+        </div>
+
+        <div class="board-selector">
+            <label for="boardSelect">Select Board:</label>
+            <select id="boardSelect">
+                <option value="">Choose a board...</option>
+            </select>
+        </div>
+
+        <div id="entryForm" style="display: none;">
+            <div class="contract-display" id="contractDisplay">Select contract details below</div>
+
+            <!-- Contract Level -->
+            <div class="contract-section">
+                <div class="section-title">Contract Level:</div>
+                <div class="button-group" id="levelButtons">
+                    <button data-value="1">1</button>
+                    <button data-value="2">2</button>
+                    <button data-value="3">3</button>
+                    <button data-value="4">4</button>
+                    <button data-value="5">5</button>
+                    <button data-value="6">6</button>
+                    <button data-value="7">7</button>
+                </div>
+            </div>
+
+            <!-- Suit -->
+            <div class="contract-section">
+                <div class="section-title">Suit:</div>
+                <div class="button-group" id="suitButtons">
+                    <button class="suit-button suit-spade" data-value="S">♠</button>
+                    <button class="suit-button suit-heart" data-value="H">♥</button>
+                    <button class="suit-button suit-diamond" data-value="D">♦</button>
+                    <button class="suit-button suit-club" data-value="C">♣</button>
+                    <button class="suit-button" data-value="NT">NT</button>
+                </div>
+            </div>
+
+            <!-- Declarer -->
+            <div class="contract-section">
+                <div class="section-title">Declarer:</div>
+                <div class="declarer-section" id="declarerButtons">
+                    <button data-value="N">North</button>
+                    <button data-value="E">East</button>
+                    <button data-value="S">South</button>
+                    <button data-value="W">West</button>
+                </div>
+            </div>
+
+            <!-- Double/Redouble -->
+            <div class="contract-section">
+                <div class="section-title">Double/Redouble (optional):</div>
+                <div class="button-group" id="doubleButtons">
+                    <button data-value="">None</button>
+                    <button data-value="X">X (Doubled)</button>
+                    <button data-value="XX">XX (Redoubled)</button>
+                </div>
+            </div>
+
+            <!-- Vulnerability (Auto-determined) -->
+            <div class="contract-section">
+                <div class="section-title">Vulnerability:</div>
+                <div class="contract-display" id="vulnerabilityDisplay" style="font-size: 16px; font-weight: normal;">
+                    Select a board to see vulnerability</div>
+            </div>
+
+            <!-- Result -->
+            <div class="contract-section">
+                <div class="section-title">Result:</div>
+                <div class="result-section">
+                    <button id="madeBtn" data-mode="made">Made</button>
+                    <button id="downBtn" data-mode="down">Down</button>
+                    <input type="number" id="tricksResult" min="0" max="7" value="0" placeholder="0">
+                    <span id="resultLabel">overtricks</span>
+                </div>
+            </div>
+
+            <!-- Score Preview -->
+            <div class="contract-display" id="scoreDisplay"
+                style="background-color: #d4edda; color: #155724; font-size: 18px;">Score will appear here</div>
+
+            <button class="submit-button" id="submitBtn" onclick="submitScore()">Calculate & Submit Score</button>
+
+            <div class="message success" id="successMessage"></div>
+            <div class="message error" id="errorMessage"></div>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="password-modal">
+        <div class="password-modal-content">
+            <h2>🔒 Table Password Required</h2>
+            <p>This table requires a password to enter scores.</p>
+            <input type="password" id="passwordInput" placeholder="Enter password">
+            <div class="password-error" id="passwordError"></div>
+            <div class="password-modal-buttons">
+                <button class="btn-cancel" onclick="cancelPasswordEntry()">Cancel</button>
+                <button class="btn-submit" onclick="submitPasswordEntry()">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedContract = {
+            level: null,
+            suit: null,
+            declarer: null,
+            double: '',
+            vulnerability: null,
+            vulnerabilityText: '',
+            resultMode: 'made',
+            tricks: 0
+        };
+
+        let currentTableId = null;
+        let currentRound = null;
+        let expectedRound = null; // Track what round we should be on
+
+        // Get table info from URL parameter
+        window.onload = async function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            currentTableId = urlParams.get('table') || 1;
+
+            // Check authentication first
+            const isAuthenticated = await checkAuthentication();
+            if (!isAuthenticated) {
+                return; // Wait for password entry
+            }
+
+            // Fetch the actual current round from the server
+            await loadCurrentRound();
+
+            // Load matchup info
+            await loadMatchupInfo();
+            loadBoards();
+            setupEventListeners();
+
+            // Poll for round changes every 10 seconds
+            setInterval(checkForRoundUpdate, 10000);
+        };
+
+        async function checkAuthentication() {
+            try {
+                // Check if table requires password
+                const response = await fetch(`/api/table/${currentTableId}/has_password`);
+                const data = await response.json();
+
+                if (!data.hasPassword) {
+                    // No password required
+                    return true;
+                }
+
+                // Check if already authenticated in this session
+                const sessionAuth = sessionStorage.getItem(`table_${currentTableId}_auth`);
+                if (sessionAuth === 'true') {
+                    return true;
+                }
+
+                // Need to authenticate - show modal and block page
+                document.querySelector('.container').classList.add('page-blocked');
+                document.getElementById('passwordModal').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('passwordInput').focus();
+                }, 100);
+                return false;
+            } catch (error) {
+                console.error('Error checking authentication:', error);
+                // On error, allow access
+                return true;
+            }
+        }
+
+        async function submitPasswordEntry() {
+            const password = document.getElementById('passwordInput').value;
+
+            if (!password) {
+                document.getElementById('passwordError').textContent = 'Please enter a password';
+                return;
+            }
+
+            try {
+                const tournamentResponse = await fetch('/api/tournament/current');
+                const tournamentData = await tournamentResponse.json();
+
+                if (!tournamentData.id) {
+                    document.getElementById('passwordError').textContent = 'No active tournament';
+                    return;
+                }
+
+                const response = await fetch('/api/table/verify_password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tournamentId: tournamentData.id,
+                        tableId: currentTableId,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.authenticated) {
+                    // Store authentication in sessionStorage
+                    sessionStorage.setItem(`table_${currentTableId}_auth`, 'true');
+                    document.getElementById('passwordModal').style.display = 'none';
+                    document.querySelector('.container').classList.remove('page-blocked');
+
+                    // Now load the page content
+                    await loadCurrentRound();
+                    await loadMatchupInfo();
+                    loadBoards();
+                    setupEventListeners();
+                    setInterval(checkForRoundUpdate, 10000);
+                } else {
+                    document.getElementById('passwordError').textContent = 'Incorrect password';
+                }
+            } catch (error) {
+                console.error('Error verifying password:', error);
+                document.getElementById('passwordError').textContent = 'Error verifying password';
+            }
+        }
+
+        function cancelPasswordEntry() {
+            // Redirect back to table selection
+            window.location.href = '/table_select';
+        }
+
+        async function loadCurrentRound() {
+            try {
+                // Get tournament ID first
+                const tournamentResponse = await fetch('/api/tournament/current');
+                const tournamentData = await tournamentResponse.json();
+
+                if (!tournamentData.id) return;
+
+                // Get current round from server
+                const roundResponse = await fetch(`/api/tournament/${tournamentData.id}/current_round`);
+                const roundData = await roundResponse.json();
+
+                currentRound = roundData.currentRound || 1;
+                expectedRound = currentRound;
+
+                document.getElementById('tableInfo').textContent = `Table ${currentTableId} | Round ${currentRound}`;
+            } catch (error) {
+                console.error('Error loading current round:', error);
+                // Fallback to round 1 if unable to fetch from server
+                currentRound = 1;
+                expectedRound = 1;
+                document.getElementById('tableInfo').textContent = `Table ${currentTableId} | Round ${currentRound}`;
+            }
+        }
+
+        async function loadMatchupInfo() {
+            try {
+                // Get tournament ID first
+                const tournamentResponse = await fetch('/api/tournament/current');
+                const tournamentData = await tournamentResponse.json();
+
+                if (!tournamentData.id) return;
+
+                const response = await fetch(`/api/tournament/${tournamentData.id}/round/${currentRound}/matchups`);
+                const data = await response.json();
+
+                if (data.matchups) {
+                    const matchup = data.matchups.find(m => m.tableNumber == currentTableId);
+                    if (matchup) {
+                        const entryLabel = tournamentData.tournamentForm === 'teams' ? 'Team' : 'Pair';
+                        document.getElementById('matchupInfo').textContent =
+                            `${entryLabel} ${matchup.entry1Id} vs ${entryLabel} ${matchup.entry2Id}`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading matchup info:', error);
+            }
+        }
+
+        async function loadBoards() {
+            try {
+                const response = await fetch(`/api/table/${currentTableId}/round/${currentRound}/boards`);
+                const data = await response.json();
+
+                const select = document.getElementById('boardSelect');
+                select.innerHTML = '<option value="">Choose a board...</option>';
+
+                data.boards.forEach(board => {
+                    const option = document.createElement('option');
+                    option.value = board.boardNumber;
+                    option.textContent = `Board ${board.boardNumber}${board.completed ? ' (completed)' : ''}`;
+                    select.appendChild(option);
+                });
+
+                // Load results table and check match status
+                await loadResultsTable();
+                await checkMatchStatus();
+            } catch (error) {
+                console.error('Error loading boards:', error);
+            }
+        }
+
+        async function loadResultsTable() {
+            try {
+                const response = await fetch(`/api/table/${currentTableId}/round/${currentRound}/results`);
+                const data = await response.json();
+
+                const tbody = document.getElementById('resultsTableBody');
+                if (data.results && data.results.length > 0) {
+                    tbody.innerHTML = '';
+                    data.results.forEach(result => {
+                        const row = document.createElement('tr');
+                        const resultText = result.result >= 0 ? `+${result.result}` : result.result;
+                        const scoreText = result.score >= 0 ? `+${result.score}` : result.score;
+                        row.innerHTML = `
+                            <td>Board ${result.boardNumber}</td>
+                            <td>${result.contract}</td>
+                            <td>${result.declarer}</td>
+                            <td>${resultText}</td>
+                            <td style="font-weight: bold;">${scoreText}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                    // Enable submit button if all boards are complete
+                    document.getElementById('submitScoresBtn').disabled = !data.allComplete;
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">No results yet</td></tr>';
+                    document.getElementById('submitScoresBtn').disabled = true;
+                }
+            } catch (error) {
+                console.error('Error loading results:', error);
+            }
+        }
+
+        async function checkMatchStatus() {
+            try {
+                const response = await fetch(`/api/table/${currentTableId}/round/${currentRound}/match_status`);
+                const data = await response.json();
+
+                if (data.matchComplete) {
+                    // Show match results
+                    const resultsDiv = document.getElementById('matchResults');
+                    const contentDiv = document.getElementById('matchResultsContent');
+
+                    contentDiv.innerHTML = `
+                        <div class="score-line">Your Score: ${data.ourScore >= 0 ? '+' : ''}${data.ourScore}</div>
+                        <div class="score-line">Opponent Score: ${data.oppScore >= 0 ? '+' : ''}${data.oppScore}</div>
+                        <div class="score-line">IMPs: ${data.imps >= 0 ? '+' : ''}${data.imps}</div>
+                        <div class="score-line">Victory Points: ${data.vp.toFixed(2)} - ${data.oppVp.toFixed(2)}</div>
+                    `;
+                    resultsDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error checking match status:', error);
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('boardSelect').addEventListener('change', async function () {
+                const boardNumber = this.value;
+                if (boardNumber) {
+                    document.getElementById('entryForm').style.display = 'block';
+                    // Fetch vulnerability for this board
+                    try {
+                        const response = await fetch(`/api/board/${boardNumber}/vulnerability`);
+                        const data = await response.json();
+                        selectedContract.vulnerability = data.vulnerability;
+                        selectedContract.vulnerabilityText = data.vulnerabilityText;
+                        document.getElementById('vulnerabilityDisplay').textContent = data.vulnerabilityText;
+                    } catch (error) {
+                        console.error('Error fetching vulnerability:', error);
+                        document.getElementById('vulnerabilityDisplay').textContent = 'Error loading vulnerability';
+                    }
+                    resetForm();
+                } else {
+                    document.getElementById('entryForm').style.display = 'none';
+                }
+            });
+
+            // Level buttons
+            document.querySelectorAll('#levelButtons button').forEach(btn => {
+                btn.addEventListener('click', () => selectButton('level', btn));
+            });
+
+            // Suit buttons
+            document.querySelectorAll('#suitButtons button').forEach(btn => {
+                btn.addEventListener('click', () => selectButton('suit', btn));
+            });
+
+            // Declarer buttons
+            document.querySelectorAll('#declarerButtons button').forEach(btn => {
+                btn.addEventListener('click', () => selectButton('declarer', btn));
+            });
+
+            // Double buttons
+            document.querySelectorAll('#doubleButtons button').forEach(btn => {
+                btn.addEventListener('click', () => selectButton('double', btn));
+            });
+
+            // Result mode buttons
+            document.getElementById('madeBtn').addEventListener('click', function () {
+                selectedContract.resultMode = 'made';
+                this.classList.add('selected');
+                document.getElementById('downBtn').classList.remove('selected');
+                document.getElementById('resultLabel').textContent = 'overtricks';
+                document.getElementById('tricksResult').max = 7;
+                updateDisplay();
+            });
+
+            document.getElementById('downBtn').addEventListener('click', function () {
+                selectedContract.resultMode = 'down';
+                this.classList.add('selected');
+                document.getElementById('madeBtn').classList.remove('selected');
+                document.getElementById('resultLabel').textContent = 'undertricks';
+                document.getElementById('tricksResult').max = 13;
+                updateDisplay();
+            });
+
+            document.getElementById('tricksResult').addEventListener('input', function () {
+                selectedContract.tricks = parseInt(this.value) || 0;
+                updateDisplay();
+            });
+
+            // Initialize made as default
+            document.getElementById('madeBtn').classList.add('selected');
+        }
+
+        function selectButton(type, button) {
+            // Remove selected class from siblings
+            button.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+            button.classList.add('selected');
+
+            selectedContract[type] = button.dataset.value;
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const { level, suit, declarer, double, vulnerability, vulnerabilityText, resultMode, tricks } = selectedContract;
+
+            let display = '';
+            if (level) display += level;
+            if (suit) display += suit;
+            if (double) display += ' ' + double;
+            if (declarer) display += ' by ' + declarer;
+            if (vulnerabilityText) display += ' (' + vulnerabilityText + ')';
+            if (level && suit) {
+                if (resultMode === 'made') {
+                    display += tricks > 0 ? ` +${tricks}` : ' =';
+                } else {
+                    display += ` -${tricks}`;
+                }
+            }
+
+            document.getElementById('contractDisplay').textContent = display || 'Select contract details below';
+
+            // Calculate and display score
+            if (level && suit && declarer && vulnerability !== null) {
+                const score = calculateScore();
+                document.getElementById('scoreDisplay').textContent = `Score: ${score >= 0 ? '+' : ''}${score}`;
+            } else {
+                document.getElementById('scoreDisplay').textContent = 'Score will appear here';
+            }
+
+            // Enable submit button if all required fields are filled
+            const canSubmit = level && suit && declarer && vulnerability !== null;
+            document.getElementById('submitBtn').disabled = !canSubmit;
+        }
+
+        function calculateScore() {
+            const { level, suit, declarer, vulnerability, resultMode, tricks } = selectedContract;
+
+            // Determine if declarer is vulnerable
+            let vulnerable = false;
+            if (vulnerability === 'Both') {
+                vulnerable = true;
+            } else if (vulnerability === 'NS' && (declarer === 'N' || declarer === 'S')) {
+                vulnerable = true;
+            } else if (vulnerability === 'EW' && (declarer === 'E' || declarer === 'W')) {
+                vulnerable = true;
+            }
+
+            const result = resultMode === 'made' ? tricks : -tricks;
+
+            // Contract made
+            if (result >= 0) {
+                // Base score
+                let baseScore;
+                if (suit === 'C' || suit === 'D') {
+                    baseScore = level * 20;
+                } else if (suit === 'H' || suit === 'S') {
+                    baseScore = level * 30;
+                } else if (suit === 'NT') {
+                    baseScore = level * 30 + 10;
+                } else {
+                    return 0;
+                }
+
+                // Game bonus
+                const gameBonus = baseScore >= 100 ? (vulnerable ? 500 : 300) : 50;
+
+                // Slam bonus
+                let slamBonus = 0;
+                if (level === 6) {
+                    slamBonus = vulnerable ? 750 : 500;
+                } else if (level === 7) {
+                    slamBonus = vulnerable ? 1500 : 1000;
+                }
+
+                // Overtrick score
+                const overtrickValue = (suit === 'C' || suit === 'D') ? 20 : 30;
+                const overtrickScore = result * overtrickValue;
+
+                return baseScore + gameBonus + slamBonus + overtrickScore;
+            }
+            // Contract failed
+            else {
+                const undertricks = Math.abs(result);
+                const penalty = vulnerable ? undertricks * 100 : undertricks * 50;
+                return -penalty;
+            }
+        }
+
+        function resetForm() {
+            const currentVul = selectedContract.vulnerability;
+            const currentVulText = selectedContract.vulnerabilityText;
+            selectedContract = {
+                level: null,
+                suit: null,
+                declarer: null,
+                double: '',
+                vulnerability: currentVul,
+                vulnerabilityText: currentVulText,
+                resultMode: 'made',
+                tricks: 0
+            };
+
+            document.querySelectorAll('button.selected').forEach(b => b.classList.remove('selected'));
+            document.getElementById('madeBtn').classList.add('selected');
+            document.getElementById('tricksResult').value = 0;
+            document.getElementById('tricksResult').max = 7;
+            document.getElementById('resultLabel').textContent = 'overtricks';
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+            updateDisplay();
+        }
+
+        async function submitScore() {
+            const boardNumber = document.getElementById('boardSelect').value;
+            const { level, suit, declarer, double, resultMode, tricks } = selectedContract;
+
+            if (!level || !suit || !declarer) {
+                showError('Please complete all required fields');
+                return;
+            }
+
+            // Calculate result (positive for overtricks, negative for undertricks)
+            const result = resultMode === 'made' ? tricks : -tricks;
+
+            const scoreData = {
+                tableId: parseInt(currentTableId),
+                round: parseInt(currentRound),
+                boardNumber: parseInt(boardNumber),
+                contract: `${level}${suit}${double}`,
+                declarer: declarer,
+                result: result
+            };
+
+            try {
+                const response = await fetch('/api/score/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(scoreData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess(`Score submitted! Result: ${data.score} points`);
+                    setTimeout(async () => {
+                        await loadBoards();
+                        resetForm();
+                        document.getElementById('boardSelect').value = '';
+                        document.getElementById('entryForm').style.display = 'none';
+                    }, 1500);
+                } else {
+                    showError(data.message || 'Failed to submit score');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error submitting score: ' + error.message);
+            }
+        }
+
+        function showSuccess(message) {
+            const elem = document.getElementById('successMessage');
+            elem.textContent = message;
+            elem.style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        function showError(message) {
+            const elem = document.getElementById('errorMessage');
+            elem.textContent = message;
+            elem.style.display = 'block';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        async function submitAllScores() {
+            if (!confirm('Submit all scores? This will finalize your results for this round.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/table/submit_round', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tableId: parseInt(currentTableId),
+                        round: parseInt(currentRound)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess('Scores submitted successfully! ' + (data.matchComplete ? 'Match results calculated!' : 'Waiting for opponent table...'));
+                    document.getElementById('submitScoresBtn').disabled = true;
+                    await checkMatchStatus();
+                } else {
+                    showError(data.message || 'Failed to submit scores');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error submitting scores: ' + error.message);
+            }
+        }
+
+        async function checkForRoundUpdate() {
+            try {
+                // Get tournament ID
+                const tournamentResponse = await fetch('/api/tournament/current');
+                const tournamentData = await tournamentResponse.json();
+
+                if (!tournamentData.id) return;
+
+                // Get current round from server
+                const roundResponse = await fetch(`/api/tournament/${tournamentData.id}/current_round`);
+                const roundData = await roundResponse.json();
+
+                const serverRound = roundData.currentRound || 1;
+
+                // If round has changed, show notification
+                if (serverRound !== expectedRound) {
+                    document.getElementById('roundNotification').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error checking for round update:', error);
+            }
+        }
+
+        function reloadPage() {
+            // Reload the page with the current table but fetch new round from server
+            window.location.href = `/score_entry?table=${currentTableId}`;
+        }
+
+        // Allow Enter key to submit password
+        document.addEventListener('DOMContentLoaded', function () {
+            const passwordInput = document.getElementById('passwordInput');
+            if (passwordInput) {
+                passwordInput.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        submitPasswordEntry();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .tournament-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .tournament-info h2 {
+            margin: 0 0 10px 0;
+            color: #34495e;
+        }
+
+        .tournament-info p {
+            margin: 5px 0;
+            color: #7f8c8d;
+        }
+
+        .round-controls {
+            text-align: right;
+        }
+
+        .round-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-success {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #229954;
+        }
+
+        .btn-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #e67e22;
+        }
+
+        .btn-secondary {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            color: #7f8c8d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #2c3e50;
+        }
+
+        .tab.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .matchup-grid {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .matchup-card {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
+
+        .matchup-card.completed {
+            border-left-color: #27ae60;
+            background-color: #d4edda;
+        }
+
+        .matchup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .matchup-title {
+            font-weight: bold;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+
+        .matchup-teams {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .team {
+            flex: 1;
+            padding: 10px;
+            background-color: white;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .vs {
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+
+        .matchup-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .matchup-actions button {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .scores-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .scores-table th,
+        .scores-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .scores-table th {
+            background-color: #34495e;
+            color: white;
+            font-weight: bold;
+        }
+
+        .scores-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .edit-score-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .edit-score-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            color: #7f8c8d;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #2c3e50;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .swap-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .swap-controls input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Main</a>
+
+        <div class="tournament-header">
+            <div class="tournament-info">
+                <h1 id="tournamentName">Tournament Management</h1>
+                <p><strong>Form:</strong> <span id="tournamentForm"></span> | <strong>Scoring:</strong> <span
+                        id="scoringMethod"></span></p>
+            </div>
+            <div class="round-controls">
+                <div style="margin-bottom: 15px;">
+                    <div style="font-size: 14px; color: #7f8c8d; margin-bottom: 5px;">Current Tournament Round</div>
+                    <div style="font-size: 24px; font-weight: bold; color: #27ae60;">
+                        Round <span id="activeTournamentRound">1</span>
+                    </div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label for="roundSelector" style="margin-right: 10px; font-size: 14px; color: #7f8c8d;">View
+                        Round:</label>
+                    <select id="roundSelector" onchange="changeRound()"
+                        style="padding: 8px 16px; font-size: 16px; border-radius: 4px; border: 1px solid #ddd; margin-right: 10px;">
+                        <option value="1">1</option>
+                    </select>
+                    <button class="btn btn-warning" onclick="setAsCurrentRound()"
+                        style="padding: 8px 16px; font-size: 14px;">Set as Current</button>
+                </div>
+                <div>
+                    <button class="btn btn-success" onclick="advanceRound()">Next Round →</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='/table_select'">Enter
+                        Scores</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="message success" id="successMessage"></div>
+        <div class="message error" id="errorMessage"></div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('matchups')">Matchups</button>
+            <button class="tab" onclick="switchTab('scores')">All Scores</button>
+            <button class="tab" onclick="switchTab('passwords')">Table Passwords</button>
+        </div>
+
+        <div id="matchupsTab" class="tab-content active">
+            <div class="matchup-grid" id="matchupGrid">
+                <!-- Matchups will be loaded here -->
+            </div>
+        </div>
+
+        <div id="scoresTab" class="tab-content">
+            <table class="scores-table" id="scoresTable">
+                <thead>
+                    <tr>
+                        <th>Table</th>
+                        <th>Board</th>
+                        <th>Contract</th>
+                        <th>Declarer</th>
+                        <th>Result</th>
+                        <th>Score</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="scoresTableBody">
+                    <!-- Scores will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div id="passwordsTab" class="tab-content">
+            <h3 style="color: #34495e;">Manage Table Passwords</h3>
+            <p style="color: #7f8c8d; margin-bottom: 20px;">Set passwords to restrict access to specific tables. Leave
+                empty to allow unrestricted access.</p>
+            <div id="passwordsGrid"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px;">
+                <!-- Password forms will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Score Modal -->
+    <div id="editScoreModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Score</h2>
+                <span class="close" onclick="closeEditModal()">&times;</span>
+            </div>
+            <form id="editScoreForm">
+                <input type="hidden" id="editScoreId">
+                <div class="form-group">
+                    <label>Board Number:</label>
+                    <input type="number" id="editBoardNumber" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Contract:</label>
+                    <input type="text" id="editContract" required>
+                </div>
+                <div class="form-group">
+                    <label>Declarer:</label>
+                    <select id="editDeclarer" required>
+                        <option value="N">North</option>
+                        <option value="E">East</option>
+                        <option value="S">South</option>
+                        <option value="W">West</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Result (+ for made, - for down):</label>
+                    <input type="number" id="editResult" required>
+                </div>
+                <div class="form-group">
+                    <label>Score:</label>
+                    <input type="number" id="editScore" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Matchup Modal -->
+    <div id="editMatchupModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Matchup</h2>
+                <span class="close" onclick="closeMatchupModal()">&times;</span>
+            </div>
+            <form id="editMatchupForm">
+                <input type="hidden" id="editMatchupTableNumber">
+                <div class="form-group">
+                    <label>Entry 1 ID:</label>
+                    <input type="number" id="editEntry1" required>
+                </div>
+                <div class="form-group">
+                    <label>Entry 2 ID:</label>
+                    <input type="number" id="editEntry2" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="closeMatchupModal()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let tournamentData = null;
+        let activeTournamentRound = 1; // The actual current round of the tournament
+        let viewingRound = 1; // The round being viewed/edited
+
+        window.onload = function () {
+            loadTournament();
+        };
+
+        async function loadTournament() {
+            try {
+                const response = await fetch('/api/tournament/current');
+                const data = await response.json();
+
+                if (data.status === 'none' || !data.id) {
+                    showError('No active tournament found');
+                    return;
+                }
+
+                tournamentData = data;
+                document.getElementById('tournamentName').textContent = data.tournamentName;
+                document.getElementById('tournamentForm').textContent =
+                    data.tournamentForm.charAt(0).toUpperCase() + data.tournamentForm.slice(1);
+                document.getElementById('scoringMethod').textContent = data.scoringMethod;
+
+                // Get current round from database
+                const roundsResponse = await fetch(`/api/tournament/${data.id}/current_round`);
+                const roundsData = await roundsResponse.json();
+                activeTournamentRound = roundsData.currentRound || 1;
+                viewingRound = activeTournamentRound;
+
+                // Update display
+                document.getElementById('activeTournamentRound').textContent = activeTournamentRound;
+
+                // Populate round selector
+                await populateRoundSelector(data.id);
+                document.getElementById('roundSelector').value = viewingRound;
+
+                loadMatchups();
+                loadAllScores();
+            } catch (error) {
+                console.error('Error loading tournament:', error);
+                showError('Error loading tournament data');
+            }
+        }
+
+        async function populateRoundSelector(tournamentId) {
+            try {
+                // Get all available rounds
+                const response = await fetch(`/api/tournament/${tournamentId}/available_rounds`);
+                const data = await response.json();
+
+                const selector = document.getElementById('roundSelector');
+                selector.innerHTML = '';
+
+                if (data.rounds && data.rounds.length > 0) {
+                    data.rounds.forEach(round => {
+                        const option = document.createElement('option');
+                        option.value = round;
+                        option.textContent = round;
+                        selector.appendChild(option);
+                    });
+                } else {
+                    // Default to round 1 if no rounds exist yet
+                    const option = document.createElement('option');
+                    option.value = 1;
+                    option.textContent = 1;
+                    selector.appendChild(option);
+                }
+            } catch (error) {
+                console.error('Error loading rounds:', error);
+                // Fallback to current round
+                const selector = document.getElementById('roundSelector');
+                selector.innerHTML = `<option value="${viewingRound}">${viewingRound}</option>`;
+            }
+        }
+
+        function changeRound() {
+            const selectedRound = parseInt(document.getElementById('roundSelector').value);
+            if (selectedRound !== viewingRound) {
+                viewingRound = selectedRound;
+                loadMatchups();
+                loadAllScores();
+            }
+        }
+
+        async function setAsCurrentRound() {
+            if (!confirm(`Set Round ${viewingRound} as the current tournament round?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/tournament/set_current_round', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tournamentId: tournamentData.id,
+                        roundNumber: viewingRound
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    activeTournamentRound = viewingRound;
+                    document.getElementById('activeTournamentRound').textContent = activeTournamentRound;
+                    showSuccess(`Round ${viewingRound} is now the current tournament round`);
+                } else {
+                    showError(data.message || 'Failed to set current round');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error setting current round');
+            }
+        }
+
+        async function loadMatchups() {
+            if (!tournamentData) return;
+
+            try {
+                const response = await fetch(`/api/tournament/${tournamentData.id}/round/${viewingRound}/matchups`);
+                const data = await response.json();
+
+                const grid = document.getElementById('matchupGrid');
+                grid.innerHTML = '';
+
+                if (data.matchups && data.matchups.length > 0) {
+                    data.matchups.forEach(matchup => {
+                        const card = createMatchupCard(matchup);
+                        grid.appendChild(card);
+                    });
+                } else {
+                    grid.innerHTML = '<p>No matchups found for this round.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading matchups:', error);
+            }
+        }
+
+        function createMatchupCard(matchup) {
+            const card = document.createElement('div');
+            card.className = 'matchup-card';
+            if (matchup.status === 'complete' || matchup.status === 'complete_with_result') {
+                card.classList.add('completed');
+            }
+
+            const entryLabel = tournamentData.tournamentForm === 'teams' ? 'Team' : 'Pair';
+
+            card.innerHTML = `
+                <div class="matchup-header">
+                    <span class="matchup-title">Table ${matchup.tableNumber}</span>
+                    <span style="color: #7f8c8d;">Boards: ${matchup.boards}</span>
+                </div>
+                <div class="matchup-teams">
+                    <div class="team">${entryLabel} ${matchup.entry1Id}</div>
+                    <span class="vs">VS</span>
+                    <div class="team">${entryLabel} ${matchup.entry2Id}</div>
+                </div>
+                <div class="matchup-actions">
+                    <button class="btn btn-primary" onclick="editMatchup(${matchup.tableNumber}, ${matchup.entry1Id}, ${matchup.entry2Id})">Edit Matchup</button>
+                    <button class="btn btn-warning" onclick="swapTable(${matchup.tableNumber})">Swap Table</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='/score_entry?table=${matchup.tableNumber}&round=${viewingRound}'">View Scores</button>
+                </div>
+            `;
+
+            return card;
+        }
+
+        async function loadAllScores() {
+            if (!tournamentData) return;
+
+            try {
+                const response = await fetch(`/api/tournament/${tournamentData.id}/round/${viewingRound}/all_scores`);
+                const data = await response.json();
+
+                const tbody = document.getElementById('scoresTableBody');
+                tbody.innerHTML = '';
+
+                if (data.scores && data.scores.length > 0) {
+                    data.scores.forEach(score => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${score.tableId}</td>
+                            <td>${score.boardNumber}</td>
+                            <td>${score.contract}</td>
+                            <td>${score.declarer}</td>
+                            <td>${score.result > 0 ? '+' : ''}${score.result}</td>
+                            <td>${score.score}</td>
+                            <td>
+                                <button class="edit-score-btn" onclick="editScore(${score.id}, ${score.tableId}, ${score.boardNumber}, '${score.contract}', '${score.declarer}', ${score.result}, ${score.score})">Edit</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No scores entered yet</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading scores:', error);
+            }
+        }
+
+        function editScore(id, tableId, boardNumber, contract, declarer, result, score) {
+            document.getElementById('editScoreId').value = id;
+            document.getElementById('editBoardNumber').value = boardNumber;
+            document.getElementById('editContract').value = contract;
+            document.getElementById('editDeclarer').value = declarer;
+            document.getElementById('editResult').value = result;
+            document.getElementById('editScore').value = score;
+            document.getElementById('editScoreModal').style.display = 'block';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editScoreModal').style.display = 'none';
+        }
+
+        document.getElementById('editScoreForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const scoreData = {
+                scoreId: parseInt(document.getElementById('editScoreId').value),
+                contract: document.getElementById('editContract').value,
+                declarer: document.getElementById('editDeclarer').value,
+                result: parseInt(document.getElementById('editResult').value),
+                score: parseInt(document.getElementById('editScore').value)
+            };
+
+            try {
+                const response = await fetch('/api/score/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(scoreData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess('Score updated successfully');
+                    closeEditModal();
+                    loadAllScores();
+                } else {
+                    showError(data.message || 'Failed to update score');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error updating score');
+            }
+        });
+
+        function editMatchup(tableNumber, entry1, entry2) {
+            document.getElementById('editMatchupTableNumber').value = tableNumber;
+            document.getElementById('editEntry1').value = entry1;
+            document.getElementById('editEntry2').value = entry2;
+            document.getElementById('editMatchupModal').style.display = 'block';
+        }
+
+        function closeMatchupModal() {
+            document.getElementById('editMatchupModal').style.display = 'none';
+        }
+
+        document.getElementById('editMatchupForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const matchupData = {
+                tournamentId: tournamentData.id,
+                round: viewingRound,
+                tableNumber: parseInt(document.getElementById('editMatchupTableNumber').value),
+                entry1Id: parseInt(document.getElementById('editEntry1').value),
+                entry2Id: parseInt(document.getElementById('editEntry2').value)
+            };
+
+            try {
+                const response = await fetch('/api/matchup/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(matchupData)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess('Matchup updated successfully');
+                    closeMatchupModal();
+                    loadMatchups();
+                } else {
+                    showError(data.message || 'Failed to update matchup');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error updating matchup');
+            }
+        });
+
+        async function swapTable(fromTable) {
+            const toTable = prompt(`Swap Table ${fromTable} with table number:`);
+            if (!toTable || isNaN(toTable)) return;
+
+            try {
+                const response = await fetch('/api/matchup/swap_tables', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tournamentId: tournamentData.id,
+                        round: viewingRound,
+                        table1: parseIactiveTournamentRound
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess(`Advanced to Round ${data.newRound}`);
+                    activeTournamentRound = data.newRound;
+                    viewingRound = activeTournamentRound;
+                    document.getElementById('activeTournamentRound').textContent = activeTournamentRound;
+                    await populateRoundSelector(tournamentData.id);
+                    document.getElementById('roundSelector').value = viewing
+                    showError(data.message || 'Failed to swap tables');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error swapping tables');
+            }
+        }
+
+        async function advanceRound() {
+            if (!confirm('Are you sure you want to advance to the next round? This will generate new matchups.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/tournament/advance_round', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tournamentId: tournamentData.id,
+                        currentRound: activeTournamentRound
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess(`Advanced to Round ${data.newRound}`);
+                    activeTournamentRound = data.newRound;
+                    viewingRound = activeTournamentRound;
+                    document.getElementById('activeTournamentRound').textContent = activeTournamentRound;
+                    await populateRoundSelector(tournamentData.id);
+                    document.getElementById('roundSelector').value = viewingRound;
+                    loadMatchups();
+                    loadAllScores();
+                } else {
+                    showError(data.message || 'Failed to advance round');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error advancing round');
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(tab + 'Tab').classList.add('active');
+
+            if (tab === 'scores') {
+                loadAllScores();
+            } else if (tab === 'passwords') {
+                loadPasswordForms();
+            }
+        }
+
+        function showSuccess(message) {
+            const elem = document.getElementById('successMessage');
+            elem.textContent = message;
+            elem.style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+            setTimeout(() => elem.style.display = 'none', 5000);
+        }
+
+        function showError(message) {
+            const elem = document.getElementById('errorMessage');
+            elem.textContent = message;
+            elem.style.display = 'block';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        async function loadPasswordForms() {
+            if (!tournamentData) return;
+
+            const numTables = Math.ceil(tournamentData.numEntries / 2);
+            const passwordsGrid = document.getElementById('passwordsGrid');
+            passwordsGrid.innerHTML = '';
+
+            for (let tableId = 1; tableId <= numTables; tableId++) {
+                const card = document.createElement('div');
+                card.style.cssText = 'background-color: #ecf0f1; padding: 20px; border-radius: 4px;';
+
+                card.innerHTML = `
+                    <h4 style="margin-top: 0; color: #2c3e50;">Table ${tableId}</h4>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label for="password_${tableId}" style="font-size: 14px; margin-bottom: 5px;">Password:</label>
+                        <input type="text" id="password_${tableId}" placeholder="Leave empty for no password" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                    <button class="btn btn-primary" onclick="setTablePassword(${tableId})" 
+                            style="width: 100%; padding: 10px; font-size: 14px;">Set Password</button>
+                    <div id="password_msg_${tableId}" style="margin-top: 10px; font-size: 12px; display: none;"></div>
+                `;
+
+                passwordsGrid.appendChild(card);
+            }
+        }
+
+        async function setTablePassword(tableId) {
+            const password = document.getElementById(`password_${tableId}`).value;
+
+            if (!password) {
+                showPasswordMessage(tableId, 'Please enter a password', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/table/set_password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tournamentId: tournamentData.id,
+                        tableId: tableId,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    showPasswordMessage(tableId, 'Password set successfully!', 'success');
+                    setTimeout(() => {
+                        document.getElementById(`password_msg_${tableId}`).style.display = 'none';
+                    }, 3000);
+                } else {
+                    showPasswordMessage(tableId, data.message || 'Error setting password', 'error');
+                }
+            } catch (error) {
+                console.error('Error setting password:', error);
+                showPasswordMessage(tableId, 'Error setting password', 'error');
+            }
+        }
+
+        function showPasswordMessage(tableId, message, type) {
+            const elem = document.getElementById(`password_msg_${tableId}`);
+            elem.textContent = message;
+            elem.style.display = 'block';
+            elem.style.color = type === 'success' ? '#155724' : '#721c24';
+            elem.style.backgroundColor = type === 'success' ? '#d4edda' : '#f8d7da';
+            elem.style.padding = '8px';
+            elem.style.borderRadius = '4px';
+        }
+    </script>
+</body>
+
+</html>

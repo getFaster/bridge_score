@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table Selection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 40px;
+            font-size: 18px;
+        }
+
+        .tournament-info {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 30px;
+        }
+
+        .tournament-info h3 {
+            margin-top: 0;
+            color: #34495e;
+        }
+
+        .tournament-info p {
+            margin: 8px 0;
+            color: #2c3e50;
+        }
+
+        .round-selector {
+            margin-bottom: 30px;
+        }
+
+        .round-selector label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+
+        .round-selector select {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .tables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .table-card {
+            background-color: #3498db;
+            color: white;
+            padding: 30px 20px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+        }
+
+        .table-card:hover {
+            background-color: #2980b9;
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .table-card.completed {
+            background-color: #27ae60;
+            border-color: #229954;
+        }
+
+        .table-card.completed:hover {
+            background-color: #229954;
+        }
+
+        .table-number {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .table-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .status-indicator {
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .no-tournament {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .no-tournament a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .no-tournament a:hover {
+            text-decoration: underline;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        /* Password Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 15px 0;
+            box-sizing: border-box;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .modal-buttons .btn-submit {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .modal-buttons .btn-submit:hover {
+            background-color: #2980b9;
+        }
+
+        .modal-buttons .btn-cancel {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .modal-buttons .btn-cancel:hover {
+            background-color: #7f8c8d;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Main</a>
+        <h1>Table Selection</h1>
+        <p class="subtitle">Select your table to enter scores for Round <span id="currentRoundDisplay">1</span></p>
+
+        <div id="loading" class="loading">Loading tournament data...</div>
+
+        <div id="noTournament" class="no-tournament" style="display: none;">
+            <p>No active tournament found.</p>
+            <p><a href="/setup">Set up a tournament first →</a></p>
+        </div>
+
+        <div id="tournamentContent" style="display: none;">
+            <div class="tournament-info" id="tournamentInfo">
+                <h3 id="tournamentName">Tournament Name</h3>
+                <p><strong>Form:</strong> <span id="tournamentForm"></span></p>
+                <p><strong>Entries:</strong> <span id="numEntries"></span></p>
+                <p><strong>Movement:</strong> <span id="movementType"></span></p>
+                <p><strong>Scoring:</strong> <span id="scoringMethod"></span></p>
+            </div>
+
+            <div id="tablesSection">
+                <h2 style="color: #34495e; margin-bottom: 20px;">Available Tables:</h2>
+                <div class="tables-grid" id="tablesGrid">
+                    <!-- Tables will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <h2>Enter Table Password</h2>
+            <p>Table <span id="modalTableNumber"></span> requires a password</p>
+            <input type="password" id="passwordInput" placeholder="Enter password">
+            <div class="error-message" id="passwordError"></div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closePasswordModal()">Cancel</button>
+                <button class="btn-submit" onclick="submitPassword()">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tournamentData = null;
+        let currentRound = 1;
+        let tableStatuses = {};
+        let selectedTableId = null;
+
+        window.onload = function () {
+            loadTournament();
+            // Poll for round changes every 10 seconds
+            setInterval(checkForRoundUpdate, 10000);
+        };
+
+        async function loadTournament() {
+            try {
+                const response = await fetch('/api/tournament/current');
+                const data = await response.json();
+
+                if (data.status === 'none' || !data.id) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('noTournament').style.display = 'block';
+                    return;
+                }
+
+                tournamentData = data;
+                displayTournamentInfo(data);
+                await loadRounds(data.id);
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('tournamentContent').style.display = 'block';
+            } catch (error) {
+                console.error('Error loading tournament:', error);
+                document.getElementById('loading').innerHTML = 'Error loading tournament data';
+            }
+        }
+
+        function displayTournamentInfo(data) {
+            document.getElementById('tournamentName').textContent = data.tournamentName;
+            document.getElementById('tournamentForm').textContent =
+                data.tournamentForm.charAt(0).toUpperCase() + data.tournamentForm.slice(1);
+
+            const entryLabel = data.tournamentForm === 'teams' ? ' teams' : ' pairs';
+            document.getElementById('numEntries').textContent = data.numEntries + entryLabel;
+
+            document.getElementById('movementType').textContent =
+                data.movementType.charAt(0).toUpperCase() + data.movementType.slice(1).replace('-', ' ');
+            document.getElementById('scoringMethod').textContent = data.scoringMethod;
+        }
+
+        async function loadRounds(tournamentId) {
+            try {
+                const response = await fetch(`/api/tournament/${tournamentId}/current_round`);
+                const data = await response.json();
+
+                currentRound = data.currentRound || 1;
+                document.getElementById('currentRoundDisplay').textContent = currentRound;
+                loadTables();
+            } catch (error) {
+                console.error('Error loading current round:', error);
+            }
+        }
+
+        async function loadTables() {
+            if (!tournamentData) return;
+
+            // Calculate number of tables from entries
+            const numTables = Math.ceil(tournamentData.numEntries / 2);
+
+            // Load status for each table
+            const tablesGrid = document.getElementById('tablesGrid');
+            tablesGrid.innerHTML = '';
+
+            for (let i = 1; i <= numTables; i++) {
+                await checkTableStatus(i);
+
+                const matchup = await getTableMatchup(i);
+
+                const tableCard = document.createElement('div');
+                tableCard.className = 'table-card';
+
+                if (tableStatuses[i]) {
+                    tableCard.classList.add('completed');
+                }
+
+                const entryLabel = tournamentData.tournamentForm === 'teams' ? 'Team' : 'Pair';
+                const teamInfo = matchup ? `${entryLabel} ${matchup.entry1} vs ${entryLabel} ${matchup.entry2}` : '';
+
+                tableCard.innerHTML = `
+                    <div class="table-number">${i}</div>
+                    <div class="table-label">Table</div>
+                    <div style="font-size: 12px; margin-top: 5px;">${teamInfo}</div>
+                    ${tableStatuses[i] ? '<div class="status-indicator">Completed</div>' : '<div class="status-indicator">Click to enter</div>'}
+                `;
+
+                tableCard.onclick = () => goToScoreEntry(i);
+                tablesGrid.appendChild(tableCard);
+            }
+        }
+
+        async function checkTableStatus(tableId) {
+            try {
+                const response = await fetch(`/api/table/${tableId}/round/${currentRound}/boards`);
+                const data = await response.json();
+
+                if (data.boards && data.boards.length > 0) {
+                    // Check if all boards are completed
+                    const allCompleted = data.boards.every(b => b.completed);
+                    tableStatuses[tableId] = allCompleted;
+                } else {
+                    tableStatuses[tableId] = false;
+                }
+            } catch (error) {
+                console.error(`Error checking status for table ${tableId}:`, error);
+                tableStatuses[tableId] = false;
+            }
+        }
+
+        async function getTableMatchup(tableId) {
+            try {
+                const response = await fetch(`/api/tournament/${tournamentData.id}/round/${currentRound}/matchups`);
+                const data = await response.json();
+
+                if (data.matchups) {
+                    const matchup = data.matchups.find(m => m.tableNumber === tableId);
+                    if (matchup) {
+                        return {
+                            entry1: matchup.entry1Id,
+                            entry2: matchup.entry2Id
+                        };
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error(`Error getting matchup for table ${tableId}:`, error);
+                return null;
+            }
+        }
+
+        function goToScoreEntry(tableNumber) {
+            selectedTableId = tableNumber;
+            // Check if table requires password
+            checkTablePassword(tableNumber);
+        }
+
+        async function checkTablePassword(tableId) {
+            try {
+                const response = await fetch(`/api/table/${tableId}/has_password`);
+                const data = await response.json();
+
+                if (data.hasPassword) {
+                    // Show password modal
+                    document.getElementById('modalTableNumber').textContent = tableId;
+                    document.getElementById('passwordInput').value = '';
+                    document.getElementById('passwordError').textContent = '';
+                    document.getElementById('passwordModal').style.display = 'block';
+
+                    // Focus on password input
+                    setTimeout(() => {
+                        document.getElementById('passwordInput').focus();
+                    }, 100);
+                } else {
+                    // No password required, go directly
+                    navigateToScoreEntry(tableId);
+                }
+            } catch (error) {
+                console.error('Error checking password:', error);
+                // On error, allow access
+                navigateToScoreEntry(tableId);
+            }
+        }
+
+        async function submitPassword() {
+            const password = document.getElementById('passwordInput').value;
+
+            if (!password) {
+                document.getElementById('passwordError').textContent = 'Please enter a password';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/table/verify_password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tournamentId: tournamentData.id,
+                        tableId: selectedTableId,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.authenticated) {
+                    // Store authentication in sessionStorage
+                    sessionStorage.setItem(`table_${selectedTableId}_auth`, 'true');
+                    const tableId = selectedTableId; // Store before closing modal
+                    closePasswordModal();
+                    navigateToScoreEntry(tableId);
+                } else {
+                    document.getElementById('passwordError').textContent = 'Incorrect password';
+                }
+            } catch (error) {
+                console.error('Error verifying password:', error);
+                document.getElementById('passwordError').textContent = 'Error verifying password';
+            }
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+            selectedTableId = null;
+        }
+
+        function navigateToScoreEntry(tableId) {
+            window.location.href = `/score_entry?table=${tableId}`;
+        }
+
+        async function checkForRoundUpdate() {
+            if (!tournamentData) return;
+
+            try {
+                const response = await fetch(`/api/tournament/${tournamentData.id}/current_round`);
+                const data = await response.json();
+
+                if (data.currentRound !== currentRound) {
+                    currentRound = data.currentRound;
+                    document.getElementById('currentRoundDisplay').textContent = currentRound;
+                    loadTables();
+                }
+            } catch (error) {
+                console.error('Error checking for round update:', error);
+            }
+        }
+
+        // Allow Enter key to submit password
+        document.addEventListener('DOMContentLoaded', function () {
+            const passwordInput = document.getElementById('passwordInput');
+            if (passwordInput) {
+                passwordInput.addEventListener('keypress', function (e) {
+                    if (e.key === 'Enter') {
+                        submitPassword();
+                    }
+                });
+            }
+
+            // Close modal on background click
+            const modal = document.getElementById('passwordModal');
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === modal) {
+                        closePasswordModal();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>
