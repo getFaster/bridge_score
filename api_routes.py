@@ -698,6 +698,40 @@ def register_api_routes(app):
         
         return {"hasPassword": result is not None}
 
+    @app.post("/api/table/get_token")
+    async def get_table_token(request: Request):
+        """Get authentication token for a table without password."""
+        data = await request.json()
+        
+        tournament_id = data.get('tournamentId')
+        table_id = data.get('tableId')
+        
+        if not tournament_id or not table_id:
+            return {"status": "error", "message": "Missing required fields"}
+        
+        cursor = request.app.state.cursor
+        conn = request.app.state.conn
+        
+        # Check if table requires password
+        cursor.execute("""SELECT id FROM table_passwords 
+                          WHERE tournament_id = ? AND table_id = ?""",
+                       (tournament_id, table_id))
+        result = cursor.fetchone()
+        
+        if result:
+            return {"status": "error", "message": "This table requires a password"}
+        
+        # Generate token for password-free table
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now() + timedelta(hours=8)
+        
+        cursor.execute("""INSERT INTO session_tokens (token, tournament_id, table_id, expires_at)
+                          VALUES (?, ?, ?, ?)""",
+                       (token, tournament_id, table_id, expires_at.isoformat()))
+        conn.commit()
+        
+        return {"status": "success", "token": token}
+
     @app.post("/api/tournament/advance_round")
     async def advance_round(request: Request):
         """Advance to the next round and generate new matchups using movement logic."""

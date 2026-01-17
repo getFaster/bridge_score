@@ -576,12 +576,35 @@
 
         async function checkAuthentication() {
             try {
+                // Get tournament ID first
+                const tournamentResponse = await fetch('/api/tournament/current');
+                const tournamentData = await tournamentResponse.json();
+
+                if (!tournamentData.id) {
+                    console.error('No active tournament');
+                    return false;
+                }
+
                 // Check if table requires password
                 const response = await fetch(`/api/table/${currentTableId}/has_password`);
                 const data = await response.json();
 
                 if (!data.hasPassword) {
-                    // No password required
+                    // No password required - get token from server
+                    const tokenResponse = await fetch('/api/table/get_token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            tournamentId: tournamentData.id,
+                            tableId: currentTableId
+                        })
+                    });
+                    const tokenData = await tokenResponse.json();
+                    if (tokenData.token) {
+                        sessionStorage.setItem(`table_${currentTableId}_token`, tokenData.token);
+                    }
                     return true;
                 }
 
@@ -1112,11 +1135,19 @@
             }
 
             try {
+                const token = sessionStorage.getItem(`table_${currentTableId}_token`);
+                const headers = {
+                    'Content-Type': 'application/json',
+                };
+
+                // Add authorization token if available
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
                 const response = await fetch('/api/table/submit_round', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: headers,
                     body: JSON.stringify({
                         tableId: parseInt(currentTableId),
                         round: parseInt(currentRound)
