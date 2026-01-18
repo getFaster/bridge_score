@@ -1,93 +1,190 @@
 import pytest
 from scoring import calculate_bridge_score
 
-def test_calculate_bridge_score_part_score_non_vulnerable():
-    """Test a part score contract non-vulnerable."""
-    assert calculate_bridge_score("2C S m 0") == 90  # 2*20 + 50
 
+# ==============================================================================
+# TESTS FOR calculate_bridge_score
+# ==============================================================================
 
-def test_calculate_bridge_score_game_major_non_vulnerable():
-    """Test game in major suit non-vulnerable."""
-    assert calculate_bridge_score("4H N m 0") == 420  # 4*30 + 300
+def test_basic_partscores():
+    """Test basic partscore contracts without overtricks"""
+    # 2C making exactly (level 2) - non-vulnerable
+    assert calculate_bridge_score("2C n 2") == 90  # 40 + 50
+    # 2D making exactly (level 2) - vulnerable
+    assert calculate_bridge_score("2D v 2") == 90  # 40 + 50
+    # 2H making exactly (level 2) - non-vulnerable
+    assert calculate_bridge_score("2H n 2") == 110  # 60 + 50
+    # 2S making exactly (level 2) - vulnerable
+    assert calculate_bridge_score("2S v 2") == 110  # 60 + 50
+    # 1NT making exactly (level 1) - non-vulnerable
+    assert calculate_bridge_score("1NT n 1") == 90  # 40 + 50
 
+def test_game_contracts():
+    """Test game contracts making exactly"""
+    # 3NT making exactly (level 3) - non-vulnerable
+    assert calculate_bridge_score("3NT n 3") == 400  # 100 + 300
+    # 3NT making exactly (level 3) - vulnerable
+    assert calculate_bridge_score("3NT v 3") == 600  # 100 + 500
+    # 4H making exactly (level 4) - non-vulnerable
+    assert calculate_bridge_score("4H n 4") == 420  # 120 + 300
+    # 4S making exactly (level 4) - vulnerable
+    assert calculate_bridge_score("4S v 4") == 620  # 120 + 500
+    # 5C making exactly (level 5) - non-vulnerable
+    assert calculate_bridge_score("5C n 5") == 400  # 100 + 300
+    # 5D making exactly (level 5) - vulnerable
+    assert calculate_bridge_score("5D v 5") == 600  # 100 + 500
 
-def test_calculate_bridge_score_game_major_vulnerable():
-    """Test game in major suit vulnerable."""
-    assert calculate_bridge_score("4S E v 0") == 620  # 4*30 + 500
+def test_contracts_with_overtricks():
+    """Test contracts with overtricks"""
+    # 3NT making 1 overtrick (level 4 reached) - non-vulnerable
+    assert calculate_bridge_score("3NT n 4") == 430  # 100 + 300 + 30
+    # 4H making 2 overtricks (level 6 reached) - vulnerable
+    assert calculate_bridge_score("4H v 6") == 680  # 120 + 500 + 60
+    # 1NT making 3 overtricks (level 4 reached) - non-vulnerable
+    assert calculate_bridge_score("1NT n 4") == 180  # 40 + 50 + 90
+    # 2C making 5 overtricks (level 7 reached) - vulnerable
+    assert calculate_bridge_score("2C v 7") == 190  # 40 + 50 + 100
 
+def test_small_slams():
+    """Test small slam contracts (6-level)"""
+    # 6NT making exactly (level 6) - non-vulnerable
+    assert calculate_bridge_score("6NT n 6") == 990  # 190 + 300 + 500
+    # 6NT making exactly (level 6) - vulnerable
+    assert calculate_bridge_score("6NT v 6") == 1440  # 190 + 500 + 750
+    # 6H making 1 overtrick (level 7) - non-vulnerable
+    assert calculate_bridge_score("6H n 7") == 1010  # 180 + 300 + 500 + 30
+    # 6D making 1 overtrick (level 7) - vulnerable
+    assert calculate_bridge_score("6D v 7") == 1390  # 120 + 500 + 750 + 20
 
-def test_calculate_bridge_score_game_notrump_non_vulnerable():
-    """Test game in no trump non-vulnerable."""
-    assert calculate_bridge_score("3NT W m 0") == 400  # 3*30+10 + 300
+def test_grand_slams():
+    """Test grand slam contracts (7-level)"""
+    # 7NT making exactly (level 7) - non-vulnerable
+    assert calculate_bridge_score("7NT n 7") == 1520  # 220 + 300 + 1000
+    # 7NT making exactly (level 7) - vulnerable
+    assert calculate_bridge_score("7NT v 7") == 2220  # 220 + 500 + 1500
+    # 7S making exactly (level 7) - non-vulnerable
+    assert calculate_bridge_score("7S n 7") == 1510  # 210 + 300 + 1000
+    # 7C making exactly (level 7) - vulnerable
+    assert calculate_bridge_score("7C v 7") == 2140  # 140 + 500 + 1500
 
+def test_contracts_down():
+    """Test contracts that fail (undertricks)"""
+    # 3NT down 1 - non-vulnerable
+    assert calculate_bridge_score("3NT n -1") == -50
+    # 4H down 1 - vulnerable
+    assert calculate_bridge_score("4H v -1") == -100
+    # 6NT down 2 - non-vulnerable
+    assert calculate_bridge_score("6NT n -2") == -100
+    # 7S down 3 - vulnerable
+    assert calculate_bridge_score("7S v -3") == -300
+    # 5D down 5 - vulnerable
+    assert calculate_bridge_score("5D v -5") == -500
 
-def test_calculate_bridge_score_game_notrump_vulnerable():
-    """Test game in no trump vulnerable."""
-    assert calculate_bridge_score("3NT S vul 0") == 600  # 3*30+10 + 500
+def test_doubled_contracts_made():
+    """Test doubled contracts that make"""
+    # 3NTX making exactly (level 3) - non-vulnerable
+    assert calculate_bridge_score("3NTX n 3") == 550  # 200 + 300 + 50
+    # 4HX making exactly (level 4) - vulnerable
+    assert calculate_bridge_score("4HX v 4") == 790  # 240 + 500 + 50
+    # 2CX making 1 overtrick (level 3) - non-vulnerable
+    assert calculate_bridge_score("2CX n 3") == 280  # 80 + 50 + 50 + 100 (1 overtrick)
+    # 3NTX making 2 overtricks (level 5) - vulnerable
+    assert calculate_bridge_score("3NTX v 5") == 1150  # 200 + 300 + 50 + 400 (2 overtricks)
 
+def test_redoubled_contracts_made():
+    """Test redoubled contracts that make"""
+    # 3NTXX making exactly (level 3) - non-vulnerable
+    assert calculate_bridge_score("3NTXX n 3") == 800  # 400 + 300 + 100
+    # 4HXX making exactly (level 4) - vulnerable
+    assert calculate_bridge_score("4HXX v 4") == 1080  # 480 + 500 + 100
+    # 2CXX making 1 overtrick (level 3) - non-vulnerable
+    assert calculate_bridge_score("2CXX n 3") == 760  # 160 + 300 + 100 + 200 (1 overtrick)
+    # 3NTXX making 2 overtricks (level 5) - vulnerable
+    assert calculate_bridge_score("3NTXX v 5") == 1800
 
-def test_calculate_bridge_score_small_slam_non_vulnerable():
-    """Test small slam non-vulnerable."""
-    assert calculate_bridge_score("6C N m 0") == 920  # 6*20 + 300 + 500
+def test_doubled_contracts_down():
+    """Test doubled contracts that fail"""
+    # 3NTX down 1 - non-vulnerable
+    assert calculate_bridge_score("3NTX n -1") == -100
+    # 4HX down 1 - vulnerable
+    assert calculate_bridge_score("4HX v -1") == -200
+    # 6NTX down 2 - non-vulnerable
+    assert calculate_bridge_score("6NTX n -2") == -300
+    # 7SX down 2 - vulnerable
+    assert calculate_bridge_score("7SX v -2") == -500
+    # 5DX down 3 - non-vulnerable
+    assert calculate_bridge_score("5DX n -3") == -500
+    # 6CX down 3 - vulnerable
+    assert calculate_bridge_score("6CX v -3") == -800
+    # 7NTX down 4 - non-vulnerable
+    assert calculate_bridge_score("7NTX n -4") == -800  # 500 + 300
+    # 7NTX down 4 - vulnerable
+    assert calculate_bridge_score("7NTX v -4") == -1100  # 800 + 300
 
+def test_redoubled_contracts_down():
+    """Test redoubled contracts that fail"""
+    # 3NTXX down 1 - non-vulnerable
+    assert calculate_bridge_score("3NTXX n -1") == -200
+    # 4HXX down 1 - vulnerable
+    assert calculate_bridge_score("4HXX v -1") == -400
+    # 6NTXX down 2 - non-vulnerable
+    assert calculate_bridge_score("6NTXX n -2") == -600
+    # 7SXX down 2 - vulnerable
+    assert calculate_bridge_score("7SXX v -2") == -1000
+    # 5DXX down 3 - non-vulnerable
+    assert calculate_bridge_score("5DXX n -3") == -1000
+    # 6CXX down 3 - vulnerable
+    assert calculate_bridge_score("6CXX v -3") == -1600
 
-def test_calculate_bridge_score_small_slam_vulnerable():
-    """Test small slam vulnerable."""
-    assert calculate_bridge_score("6D S v 0") == 1370  # 6*20 + 500 + 750
+def test_doubled_slams():
+    """Test doubled and redoubled slams"""
+    # 6NTX making exactly (level 6) - non-vulnerable
+    assert calculate_bridge_score("6NTX n 6") == 1230
+    # 6HX making exactly (level 6) - vulnerable
+    assert calculate_bridge_score("6HX v 6") == 1660
+    # 7NTXX making exactly (level 7) - vulnerable
+    assert calculate_bridge_score("7NTXX v 7") == 2980  # 880 + 500 + 1500 + 100
 
+def test_invalid_inputs():
+    """Test that invalid inputs raise assertions"""
+    # Invalid number of parts
+    with pytest.raises(AssertionError):
+        calculate_bridge_score("4H n")
+    
+    with pytest.raises(AssertionError):
+        calculate_bridge_score("4H n 0 extra")
+    
+    # Invalid contract format
+    with pytest.raises(AssertionError):
+        calculate_bridge_score("8H n 0")  # Level 8 doesn't exist but will parse
+    
+    with pytest.raises(AssertionError):
+        calculate_bridge_score("H4 n 0")  # Wrong order
+    
+    with pytest.raises(AssertionError):
+        calculate_bridge_score("4Z n 0")  # Invalid suit
+    
+    # Note: We don't validate trick counts in the new version
+    # since we calculate overtricks from total tricks
 
-def test_calculate_bridge_score_grand_slam_non_vulnerable():
-    """Test grand slam non-vulnerable."""
-    assert calculate_bridge_score("7H E m 0") == 1510  # 7*30 + 300 + 1000
-
-
-def test_calculate_bridge_score_grand_slam_vulnerable():
-    """Test grand slam vulnerable."""
-    assert calculate_bridge_score("7NT W v 0") == 2220  # 7*30+10 + 500 + 1500
-
-
-def test_calculate_bridge_score_with_overtricks_minor():
-    """Test contract with overtricks in minor suit."""
-    assert calculate_bridge_score("2D S m 2") == 130  # 2*20 + 50 + 2*20
-
-
-def test_calculate_bridge_score_with_overtricks_major():
-    """Test contract with overtricks in major suit."""
-    assert calculate_bridge_score("4H N v 1") == 650  # 4*30 + 500 + 1*30
-
-
-def test_calculate_bridge_score_with_overtricks_notrump():
-    """Test contract with overtricks in no trump."""
-    assert calculate_bridge_score("3NT S m 2") == 460  # 3*30+10 + 300 + 2*30
-
-
-def test_calculate_bridge_score_undertricks_non_vulnerable():
-    """Test failed contract non-vulnerable."""
-    assert calculate_bridge_score("4S N m -2") == -100  # 2*50
-
-
-def test_calculate_bridge_score_undertricks_vulnerable():
-    """Test failed contract vulnerable."""
-    assert calculate_bridge_score("5C S v -3") == -300  # 3*100
-
-
-def test_calculate_bridge_score_invalid_format():
-    """Test invalid input format."""
-    assert calculate_bridge_score("invalid") == 0
-    assert calculate_bridge_score("3S N") == 0
-    assert calculate_bridge_score("") == 0
-
-
-def test_calculate_bridge_score_minor_suit_game():
-    """Test game in minor suit (5C/5D)."""
-    assert calculate_bridge_score("5D W m 0") == 400  # 5*20 + 300
-
-
-def test_calculate_bridge_score_vulnerability_variations():
-    """Test different vulnerability notations."""
-    assert calculate_bridge_score("3NT S v 0") == 600
-    assert calculate_bridge_score("3NT S vul 0") == 600
-    assert calculate_bridge_score("3NT S V 0") == 600
+def test_edge_cases():
+    """Test edge cases and boundary conditions"""
+    # Maximum overtricks - 1C making level 7 (6 overtricks)
+    assert calculate_bridge_score("1C n 7") > 0
+    
+    # Maximum undertricks
+    assert calculate_bridge_score("7NT v -13") < 0  # Down 13 tricks
+    
+    # All suits work
+    for suit in ['C', 'D', 'H', 'S']:
+        assert calculate_bridge_score(f"3{suit} n 3") > 0
+    
+    # NT works
+    assert calculate_bridge_score("3NT n 3") == 400
+    
+    # Lowercase suit should work (gets converted to uppercase)
+    assert calculate_bridge_score("3nt n 3") == 400
+    assert calculate_bridge_score("4h n 4") == 420
 
 
 def test_swiss_pairing_17_teams_8_rounds():

@@ -1,6 +1,7 @@
 import numpy as np
 import math
 from enum import Enum
+import re
 
 class Vul(Enum):
     NONE = 0
@@ -8,51 +9,78 @@ class Vul(Enum):
     EW = 2
     ALL = 3
 
-def calculate_bridge_score(result):
+def calculate_bridge_score(result: str) -> int:
     """
     Calculate the score for a bridge contract result.
     
     Args:
-        result: A string in format "level+suit declarer vulnerability tricks_made"
-                e.g., "3S S m 3" means 3 Spades by South, non-vulnerable, making 3 overtricks
+        score_input = f"{contract} {vulnerability_str} {result}"
+        contract (str): Contract in the format "<level><suit><doubles>"
+                        e.g., "4H", "3NTX", "5DX"
+        vulnerability_str (str): 'v' for vulnerable, 'n' for not vulnerable
+        result >= <level>: level made
+        result <= 1: undertricks (negative)    
     
     Returns:
         int: The score for the contract
     """
     parts = result.strip().split()
-    if len(parts) != 4:
-        return 0
+    if len(parts) != 3:
+        assert False, "Invalid input format. Expected format: '<contract> <vulnerability> <tricks made/undertricks>'"
     
-    contract_str, declarer, vulnerability, tricks_str = parts
+    contract_str, vulnerability, tricks_str = parts
     
     # Parse contract
-    level = int(contract_str[0])
-    suit = contract_str[1:].upper()
+    # Support for doubled (X) and redoubled (XX) contracts
+    m = re.match(r"(\d+)(NT|[CDHS])(X{0,2})", contract_str.upper())
+    if not m:
+        assert False, "Invalid contract format: {}".format(contract_str)
+    level = int(m.group(1))
+    suit = m.group(2)
+    dbl = m.group(3)
+    
+    # Determine multiplier
+    if dbl == 'X':
+        multiplier = 2
+    elif dbl == 'XX':
+        multiplier = 4
+    else:
+        multiplier = 1
     
     # Parse tricks made (overtricks or undertricks)
-    tricks_made = int(tricks_str)
+    tricks = int(tricks_str)
+    assert tricks >= level or tricks <= -1, \
+            "Invalid tricks for contract {}: {}".format(contract_str, tricks)
+
     
     # Determine if vulnerable
     vulnerable = vulnerability.lower() in ['v', 'vul']
-    
-    # Contract made
-    if tricks_made >= 0:
+        
+    # Contract made (tricks_taken is total tricks)
+    if tricks >= level:
         # Base score
+        base_score = 0
         if suit in ['C', 'D']:  # Minor suits
             base_score = level * 20
         elif suit in ['H', 'S']:  # Major suits
             base_score = level * 30
         elif suit == 'NT':  # No Trump
             base_score = level * 30 + 10
-        else:
-            return 0
         
+        base_score *= multiplier
         # Game bonus
         if base_score >= 100:
             game_bonus = 500 if vulnerable else 300
         else:
             game_bonus = 50
-        
+
+        # Doubled/redoubled insult bonus
+        insult_bonus = 0
+        if multiplier == 2:
+            insult_bonus = 50
+        elif multiplier == 4:
+            insult_bonus = 100
+                
         # Slam bonus
         slam_bonus = 0
         if level == 6:  # Small slam
@@ -61,23 +89,50 @@ def calculate_bridge_score(result):
             slam_bonus = 1500 if vulnerable else 1000
         
         # Overtrick score
-        if suit in ['C', 'D']:
+        overtrick_value = 0
+        if multiplier == 2:
+            overtrick_value = 200 if vulnerable else 100
+        elif multiplier == 4:
+            overtrick_value = 400 if vulnerable else 200
+        elif suit in ['C', 'D']:
             overtrick_value = 20
         elif suit in ['H', 'S', 'NT']:
             overtrick_value = 30
         
-        overtrick_score = tricks_made * overtrick_value
-        
-        total_score = base_score + game_bonus + slam_bonus + overtrick_score
+        # Calculate overtricks
+        overtricks = tricks - level
+        assert overtricks >= 0, "Logic error: overtricks should be >= 0 for made contracts"
+                
+        total_score = base_score + game_bonus + slam_bonus + overtrick_value * overtricks + insult_bonus
         return total_score
     
-    # Contract failed (undertricks)
+    # Contract failed (negative means undertricks)
     else:
-        undertricks = abs(tricks_made)
-        if not vulnerable:
-            penalty = undertricks * 50
+        undertricks = abs(tricks)
+        penalty = 0
+        if multiplier == 1:
+            # Not doubled
+            penalty = undertricks * (100 if vulnerable else 50)
         else:
-            penalty = undertricks * 100
+            # Doubled
+            if not vulnerable:
+                if undertricks == 1:
+                    penalty = 100
+                elif undertricks == 2:
+                    penalty = 300
+                else:  # 3 or more
+                    penalty = 500 + (undertricks - 3) * 300
+            else:
+                if undertricks == 1:
+                    penalty = 200
+                elif undertricks == 2:
+                    penalty = 500
+                else:  # 3 or more
+                    penalty = 800 + (undertricks - 3) * 300
+
+            if multiplier == 4:
+                penalty *= 2
+
         return -penalty
     
 def calculate_imp(a: int, b: int) -> int:
