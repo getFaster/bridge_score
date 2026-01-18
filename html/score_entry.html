@@ -505,7 +505,7 @@
                 <div class="result-section">
                     <button id="madeBtn" data-mode="made">Made</button>
                     <button id="downBtn" data-mode="down">Down</button>
-                    <input type="number" id="tricksResult" min="0" max="7" value="0" placeholder="0">
+                    <input type="number" id="tricksResult" min="1" max="13">
                     <span id="resultLabel">overtricks</span>
                 </div>
             </div>
@@ -834,9 +834,33 @@
                 }
             });
 
+            function setMadeTricksResult() {
+                document.getElementById('resultLabel').textContent = 'level';
+                const input = document.getElementById('tricksResult');
+                input.min = selectedContract.level || 1;
+                input.max = 7;
+                input.value = input.min;
+            }
+
+            function setDownTricksResult() {
+                document.getElementById('resultLabel').textContent = 'undertricks';
+                const input = document.getElementById('tricksResult');
+                input.min = 1;
+                input.max = selectedContract.level ? 6 + parseInt(selectedContract.level) : 13;
+                input.value = input.min;
+            }
+
             // Level buttons
             document.querySelectorAll('#levelButtons button').forEach(btn => {
                 btn.addEventListener('click', () => selectButton('level', btn));
+                btn.addEventListener('click', () => {
+                    // Update tricks input min/max based on level
+                    if (selectedContract.resultMode === 'made') {
+                        setMadeTricksResult();
+                    } else {
+                        setDownTricksResult();
+                    }
+                });
             });
 
             // Suit buttons
@@ -859,8 +883,7 @@
                 selectedContract.resultMode = 'made';
                 this.classList.add('selected');
                 document.getElementById('downBtn').classList.remove('selected');
-                document.getElementById('resultLabel').textContent = 'overtricks';
-                document.getElementById('tricksResult').max = 7;
+                setMadeTricksResult();
                 updateDisplay();
             });
 
@@ -868,8 +891,7 @@
                 selectedContract.resultMode = 'down';
                 this.classList.add('selected');
                 document.getElementById('madeBtn').classList.remove('selected');
-                document.getElementById('resultLabel').textContent = 'undertricks';
-                document.getElementById('tricksResult').max = 13;
+                setDownTricksResult();
                 updateDisplay();
             });
 
@@ -902,16 +924,24 @@
             if (vulnerabilityText) display += ' (' + vulnerabilityText + ')';
             if (level && suit) {
                 if (resultMode === 'made') {
-                    display += tricks > 0 ? ` +${tricks}` : ' =';
+                    const madeLevel = tricks || '?';
+                    const difference = tricks && level ? tricks - level : 0;
+                    if (difference > 0) {
+                        display += ` made ${madeLevel} (+${difference})`;
+                    } else if (difference === 0) {
+                        display += ` made ${madeLevel}`;
+                    } else if (tricks > 0) {
+                        display += ` made ${madeLevel} (down ${Math.abs(difference)})`;
+                    }
                 } else {
-                    display += ` -${tricks}`;
+                    display += tricks ? ` -${tricks}` : '';
                 }
             }
 
             document.getElementById('contractDisplay').textContent = display || 'Select contract details below';
 
             // Calculate and display score
-            if (level && suit && declarer && vulnerability !== null) {
+            if (level && suit && declarer && vulnerability !== null && tricks > 0) {
                 const score = calculateScore();
                 document.getElementById('scoreDisplay').textContent = `Score: ${score >= 0 ? '+' : ''}${score}`;
             } else {
@@ -919,7 +949,7 @@
             }
 
             // Enable submit button if all required fields are filled
-            const canSubmit = level && suit && declarer && vulnerability !== null;
+            const canSubmit = level && suit && declarer && vulnerability !== null && tricks > 0;
             document.getElementById('submitBtn').disabled = !canSubmit;
         }
 
@@ -936,7 +966,8 @@
                 vulnerable = true;
             }
 
-            const result = resultMode === 'made' ? tricks : -tricks;
+            // Calculate result: for made, it's (level made - level bid), for down it's -undertricks
+            const result = resultMode === 'made' ? (tricks - level) : (-tricks);
             const isDoubled = double === 'X';
             const isRedoubled = double === 'XX';
 
@@ -951,7 +982,8 @@
                 } else if (suit === 'NT') {
                     baseScore = level * 30 + 10;
                 } else {
-                    return 0;
+                    console.error("Error: Call TD");
+                    return -1234;
                 }
 
                 // Apply double/redouble multiplier to base score
@@ -1050,9 +1082,11 @@
 
             document.querySelectorAll('button.selected').forEach(b => b.classList.remove('selected'));
             document.getElementById('madeBtn').classList.add('selected');
-            document.getElementById('tricksResult').value = 0;
-            document.getElementById('tricksResult').max = 7;
-            document.getElementById('resultLabel').textContent = 'overtricks';
+            const input = document.getElementById('tricksResult');
+            input.value = '';
+            input.min = 1;
+            input.max = 7;
+            document.getElementById('resultLabel').textContent = 'level';
             document.getElementById('successMessage').style.display = 'none';
             document.getElementById('errorMessage').style.display = 'none';
             updateDisplay();

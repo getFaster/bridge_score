@@ -253,10 +253,12 @@ def register_api_routes(app):
             vulnerable = True
         
         vulnerability_str = 'v' if vulnerable else 'm'
-        score_input = f"{contract} {declarer} {vulnerability_str} {result}"
+        score_input = f"{contract} {vulnerability_str} {result}"
         
         try:
             score = calculate_bridge_score(score_input)
+            if declarer in ['E', 'W']:
+                score = -score
         except Exception as e:
             return {"status": "error", "message": f"Error calculating score: {str(e)}"}
         
