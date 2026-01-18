@@ -1141,7 +1141,7 @@
                         document.getElementById('entryForm').style.display = 'none';
                     }, 1500);
                 } else {
-                    showError(data.message || 'Failed to submit score');
+                    showError(data.detail || data.message || 'Failed to submit score');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -1195,7 +1195,7 @@
                     document.getElementById('submitScoresBtn').disabled = true;
                     await checkMatchStatus();
                 } else {
-                    showError(data.message || 'Failed to submit scores');
+                    showError(data.detail || data.message || 'Failed to submit scores');
                 }
             } catch (error) {
                 console.error('Error:', error);

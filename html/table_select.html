@@ -471,14 +471,14 @@
 
                 const data = await response.json();
 
-                if (data.authenticated) {
+                if (response.ok && data.authenticated) {
                     // Store authentication token in sessionStorage
                     sessionStorage.setItem(`table_${selectedTableId}_token`, data.token);
                     const tableId = selectedTableId; // Store before closing modal
                     closePasswordModal();
                     navigateToScoreEntry(tableId);
                 } else {
-                    document.getElementById('passwordError').textContent = 'Incorrect password';
+                    document.getElementById('passwordError').textContent = data.detail || data.message || 'Incorrect password';
                 }
             } catch (error) {
                 console.error('Error verifying password:', error);

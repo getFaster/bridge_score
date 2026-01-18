@@ -592,12 +592,12 @@
 
                 const data = await response.json();
 
-                if (response.ok) {
+                if (response.ok && data.status === 'success') {
                     activeTournamentRound = viewingRound;
                     document.getElementById('activeTournamentRound').textContent = activeTournamentRound;
                     showSuccess(`Round ${viewingRound} is now the current tournament round`);
                 } else {
-                    showError(data.message || 'Failed to set current round');
+                    showError(data.detail || data.message || 'Failed to set current round');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -831,7 +831,7 @@
 
                 const data = await response.json();
 
-                if (response.ok) {
+                if (response.ok && data.status === 'success') {
                     showSuccess(`Advanced to Round ${data.newRound}`);
                     activeTournamentRound = data.newRound;
                     viewingRound = activeTournamentRound;
@@ -841,7 +841,7 @@
                     loadMatchups();
                     loadAllScores();
                 } else {
-                    showError(data.message || 'Failed to advance round');
+                    showError(data.detail || data.message || 'Failed to advance round');
                 }
             } catch (error) {
                 console.error('Error:', error);

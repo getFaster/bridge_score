@@ -12,10 +12,19 @@ import math
 def handle_round_robin(num_entries: int, new_round: int) -> list:
     """Generate matchups for round-robin movement."""
     all_rounds = round_robin(num_entries)
-    if new_round - 1 < len(all_rounds):
-        return all_rounds[new_round - 1]
-    else:
+    if new_round - 1 >= len(all_rounds):
         raise ValueError("No more rounds in round robin")
+
+    round_pairings = all_rounds[new_round - 1]
+    # Filter out bye matches (bye team is num_entries + 1 when num_entries is odd)
+    if num_entries % 2 == 1:
+        bye_team = num_entries + 1
+        round_pairings = [
+            (team1, team2)
+            for team1, team2 in round_pairings
+            if team1 != bye_team and team2 != bye_team
+        ]
+    return round_pairings
 
 
 def handle_swiss(cursor, tournament_id: int, num_entries: int, new_round: int) -> list:
@@ -104,7 +113,7 @@ def register_api_routes(app):
         user_num_rounds = data.get('numRounds')
         
         if not tournament_name or not tournament_form or not num_entries:
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing required fields")
 
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -150,34 +159,40 @@ def register_api_routes(app):
         elif tournament_form == 'teams':
             if movement_type == 'round-robin':
                 # For round-robin: each match needs 2 tables (duplicate bridge)
-                num_rounds = num_entries - 1
+                all_rounds = round_robin(num_entries)
+                num_rounds = len(all_rounds)
                 num_tables = (num_entries // 2) * 2  # Each match needs 2 tables
-                
+
                 # Create rounds table entries for teams round-robin (duplicate)
                 for round_num in range(1, num_rounds + 1):
+                    round_pairings = all_rounds[round_num - 1]
+                    if num_entries % 2 == 1:
+                        bye_team = num_entries + 1
+                        round_pairings = [
+                            (team1, team2)
+                            for team1, team2 in round_pairings
+                            if team1 != bye_team and team2 != bye_team
+                        ]
+
                     table_id = 1
-                    for match in range(0, num_entries, 2):
-                        if match + 1 < num_entries:
-                            entry1 = match + 1
-                            entry2 = match + 2
-                            
-                            # Table 1: entry1 NS, entry2 EW
-                            start_board = (round_num - 1) * boards_per_round + 1
-                            end_board = round_num * boards_per_round
-                            boards = f"{start_board}-{end_board}"
-                            
-                            cursor.execute("""INSERT INTO rounds 
-                                          (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
-                                          VALUES (?, ?, ?, ?, ?, ?)""",
-                                       (tournament_id, round_num, table_id, entry1, entry2, boards))
-                            
-                            # Table 2: entry1 EW, entry2 NS (duplicate)
-                            table_id += 1
-                            cursor.execute("""INSERT INTO rounds 
-                                          (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
-                                          VALUES (?, ?, ?, ?, ?, ?)""",
-                                       (tournament_id, round_num, table_id, entry2, entry1, boards))
-                            table_id += 1
+                    for entry1, entry2 in round_pairings:
+                        # Table 1: entry1 NS, entry2 EW
+                        start_board = (round_num - 1) * boards_per_round + 1
+                        end_board = round_num * boards_per_round
+                        boards = f"{start_board}-{end_board}"
+
+                        cursor.execute("""INSERT INTO rounds 
+                                      (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
+                                      VALUES (?, ?, ?, ?, ?, ?)""",
+                                   (tournament_id, round_num, table_id, entry1, entry2, boards))
+
+                        # Table 2: entry1 EW, entry2 NS (duplicate)
+                        table_id += 1
+                        cursor.execute("""INSERT INTO rounds 
+                                      (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
+                                      VALUES (?, ?, ?, ?, ?, ?)""",
+                                   (tournament_id, round_num, table_id, entry2, entry1, boards))
+                        table_id += 1
             
             elif movement_type == 'swiss':
                 # Swiss: calculate expected rounds but don't pre-populate (dynamic pairings)
@@ -325,7 +340,7 @@ def register_api_routes(app):
             raise HTTPException(status_code=403, detail="Not authorized to submit scores for this table")
         
         if not all([table_id, round_number, board_number, contract, declarer, result is not None]):
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing required fields")
         
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -333,7 +348,7 @@ def register_api_routes(app):
         cursor.execute("SELECT id FROM tournaments ORDER BY created_at DESC LIMIT 1")
         tournament = cursor.fetchone()
         if not tournament:
-            return {"status": "error", "message": "No active tournament"}
+            raise HTTPException(status_code=404, detail="No active tournament")
         
         tournament_id = tournament[0]
         
@@ -363,7 +378,7 @@ def register_api_routes(app):
             if declarer in ['E', 'W']:
                 score = -score
         except Exception as e:
-            return {"status": "error", "message": f"Error calculating score: {str(e)}"}
+            raise HTTPException(status_code=400, detail=f"Error calculating score: {str(e)}")
         
         cursor.execute("SELECT id FROM board_results WHERE tournament_id = ? AND table_id = ? AND round_number = ? AND board_number = ?",
                        (tournament_id, table_id, round_number, board_number))
@@ -443,7 +458,7 @@ def register_api_routes(app):
         cursor.execute("SELECT id, boards_per_round FROM tournaments ORDER BY created_at DESC LIMIT 1")
         tournament = cursor.fetchone()
         if not tournament:
-            return {"status": "error", "message": "No active tournament"}
+            raise HTTPException(status_code=404, detail="No active tournament")
         
         tournament_id, boards_per_round = tournament[0], tournament[1]
         
@@ -599,7 +614,7 @@ def register_api_routes(app):
         score = data.get('score')
         
         if not all([score_id, contract, declarer, result is not None, score is not None]):
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing required fields")
         
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -630,7 +645,7 @@ def register_api_routes(app):
         entry2_id = data.get('entry2Id')
         
         if not all([tournament_id, round_number, table_number, entry1_id, entry2_id]):
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing required fields")
         
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -654,7 +669,7 @@ def register_api_routes(app):
         table2 = data.get('table2')
         
         if not all([tournament_id, round_number, table1, table2]):
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing required fields")
         
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -672,7 +687,7 @@ def register_api_routes(app):
         matchup2 = cursor.fetchone()
         
         if not matchup1 or not matchup2:
-            return {"status": "error", "message": "One or both tables not found"}
+            raise HTTPException(status_code=404, detail="One or both tables not found")
         
         cursor.execute("""UPDATE rounds 
                           SET entry1_id = ?, entry2_id = ?, boards = ?
@@ -707,7 +722,7 @@ def register_api_routes(app):
         round_number = data.get('roundNumber')
         
         if not tournament_id or round_number is None:
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing required fields")
         
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -717,7 +732,7 @@ def register_api_routes(app):
                        (tournament_id, round_number))
         
         if cursor.fetchone()[0] == 0:
-            return {"status": "error", "message": f"Round {round_number} does not exist"}
+            raise HTTPException(status_code=404, detail=f"Round {round_number} does not exist")
         
         cursor.execute("""INSERT OR REPLACE INTO tournament_settings 
                           (tournament_id, current_round) 
@@ -737,7 +752,7 @@ def register_api_routes(app):
         password = data.get('password')
         
         if not tournament_id or not table_id or not password:
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing required fields")
         
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -760,7 +775,7 @@ def register_api_routes(app):
         password = data.get('password')
         
         if not tournament_id or not table_id or not password:
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing required fields")
         
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -787,7 +802,7 @@ def register_api_routes(app):
             
             return {"status": "success", "authenticated": True, "token": token}
         else:
-            return {"status": "error", "authenticated": False, "message": "Incorrect password"}
+            raise HTTPException(status_code=401, detail="Incorrect password")
 
     @app.get("/api/table/{table_id}/has_password")
     async def check_table_has_password(table_id: int, request: Request):
@@ -818,7 +833,7 @@ def register_api_routes(app):
         table_id = data.get('tableId')
         
         if not tournament_id or not table_id:
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing required fields")
         
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -830,7 +845,7 @@ def register_api_routes(app):
         result = cursor.fetchone()
         
         if result:
-            return {"status": "error", "message": "This table requires a password"}
+            raise HTTPException(status_code=403, detail="This table requires a password")
         
         # Generate token for password-free table
         token = secrets.token_urlsafe(32)
@@ -852,7 +867,7 @@ def register_api_routes(app):
         current_round = data.get('currentRound')
         
         if not tournament_id or current_round is None:
-            return {"status": "error", "message": "Missing required fields"}
+            raise HTTPException(status_code=422, detail="Missing tournamentId or currentRound")
         
         cursor = request.app.state.cursor
         conn = request.app.state.conn
@@ -862,7 +877,7 @@ def register_api_routes(app):
         tournament = cursor.fetchone()
         
         if not tournament:
-            return {"status": "error", "message": "Tournament not found"}
+            raise HTTPException(status_code=404, detail="Tournament not found")
         
         tournament_form, movement_type, num_entries, boards_per_round = tournament
         
@@ -879,10 +894,10 @@ def register_api_routes(app):
         actual_results = cursor.fetchone()[0]
         
         if actual_results < expected_results:
-            return {
-                "status": "error", 
-                "message": f"Cannot advance: {actual_results} of {expected_results} board results entered. All scores must be collected first."
-            }
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot advance: {actual_results} of {expected_results} board results entered. All scores must be collected first."
+            )
         
         new_round = current_round + 1
         
@@ -897,15 +912,34 @@ def register_api_routes(app):
                 round_matchups = handle_rotation(num_entries, new_round)
             
             # Insert new round matchups into database
-            for table_num, (entry1, entry2) in enumerate(round_matchups, start=1):
-                start_board = (new_round - 1) * boards_per_round + 1
-                end_board = new_round * boards_per_round
-                boards = f"{start_board}-{end_board}"
-                
-                cursor.execute("""INSERT INTO rounds 
-                                 (tournament_id, round_number, table_number, entry1_id, entry2_id, boards, status)
-                                 VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
-                              (tournament_id, new_round, table_num, entry1, entry2, boards))
+            if movement_type == 'round-robin' and tournament_form == 'teams':
+                table_num = 1
+                for entry1, entry2 in round_matchups:
+                    start_board = (new_round - 1) * boards_per_round + 1
+                    end_board = new_round * boards_per_round
+                    boards = f"{start_board}-{end_board}"
+
+                    cursor.execute("""INSERT INTO rounds 
+                                     (tournament_id, round_number, table_number, entry1_id, entry2_id, boards, status)
+                                     VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
+                                  (tournament_id, new_round, table_num, entry1, entry2, boards))
+
+                    table_num += 1
+                    cursor.execute("""INSERT INTO rounds 
+                                     (tournament_id, round_number, table_number, entry1_id, entry2_id, boards, status)
+                                     VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
+                                  (tournament_id, new_round, table_num, entry2, entry1, boards))
+                    table_num += 1
+            else:
+                for table_num, (entry1, entry2) in enumerate(round_matchups, start=1):
+                    start_board = (new_round - 1) * boards_per_round + 1
+                    end_board = new_round * boards_per_round
+                    boards = f"{start_board}-{end_board}"
+
+                    cursor.execute("""INSERT INTO rounds 
+                                     (tournament_id, round_number, table_number, entry1_id, entry2_id, boards, status)
+                                     VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
+                                  (tournament_id, new_round, table_num, entry1, entry2, boards))
             
             conn.commit()
             
@@ -916,4 +950,4 @@ def register_api_routes(app):
             }
             
         except Exception as e:
-            return {"status": "error", "message": f"Error generating matchups: {str(e)}"}
+            raise HTTPException(status_code=500, detail=f"Error generating matchups: {str(e)}")
