@@ -881,7 +881,16 @@
         async function loadPasswordForms() {
             if (!tournamentData) return;
 
-            const numTables = Math.ceil(tournamentData.numEntries / 2);
+            // Calculate number of tables based on tournament form
+            let numTables;
+            if (tournamentData.tournamentForm === 'pairs') {
+                // Pairs: 1 table per pair matchup
+                numTables = Math.ceil(tournamentData.numEntries / 2);
+            } else {
+                // Teams: 2 tables per team matchup (duplicate bridge)
+                numTables = (Math.floor(tournamentData.numEntries / 2)) * 2;
+            }
+
             const passwordsGrid = document.getElementById('passwordsGrid');
             passwordsGrid.innerHTML = '';
 
