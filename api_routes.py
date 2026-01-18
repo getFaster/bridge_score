@@ -8,6 +8,70 @@ from datetime import datetime, timedelta
 import math
 
 
+# Movement type handlers
+def handle_round_robin(num_entries: int, new_round: int) -> list:
+    """Generate matchups for round-robin movement."""
+    all_rounds = round_robin(num_entries)
+    if new_round - 1 < len(all_rounds):
+        return all_rounds[new_round - 1]
+    else:
+        raise ValueError("No more rounds in round robin")
+
+
+def handle_swiss(cursor, tournament_id: int, num_entries: int, new_round: int) -> list:
+    """Generate matchups for Swiss movement."""
+    # Get current standings
+    cursor.execute("""SELECT table_id, SUM(vp) as total_vp
+                      FROM match_results
+                      WHERE tournament_id = ?
+                      GROUP BY table_id
+                      ORDER BY total_vp DESC""", (tournament_id,))
+    standings_results = cursor.fetchall()
+    
+    team_ids = list(range(1, num_entries + 1))
+    
+    # Build standings dictionary
+    standings = {row[0]: float(row[1]) for row in standings_results} if standings_results else {tid: 0.0 for tid in team_ids}
+    
+    # Build previous opponents dictionary
+    cursor.execute("""SELECT entry1_id, entry2_id 
+                      FROM rounds 
+                      WHERE tournament_id = ? AND round_number < ?""",
+                   (tournament_id, new_round))
+    previous_matches = cursor.fetchall()
+    
+    previous_opponents = {tid: [] for tid in team_ids}
+    for entry1, entry2 in previous_matches:
+        if entry1 in previous_opponents:
+            previous_opponents[entry1].append(entry2)
+        if entry2 in previous_opponents:
+            previous_opponents[entry2].append(entry1)
+    
+    # Get pairings from swiss_pairing algorithm
+    pairings = swiss_pairing(team_ids, standings, previous_opponents, new_round)
+    
+    # Convert from swiss_pairing format to simple matchup format
+    # swiss_pairing returns: List[Tuple[int, str, int, int]] = (table_number, room, team_ns, team_ew)
+    # We need: List[Tuple[int, int]] = (team1, team2)
+    round_matchups = []
+    seen_tables = set()
+    for table_num, room, team_ns, team_ew in pairings:
+        if table_num not in seen_tables:
+            round_matchups.append((team_ns, team_ew))
+            seen_tables.add(table_num)
+    
+    return round_matchups
+
+
+def handle_rotation(num_entries: int, new_round: int) -> list:
+    """Generate matchups using simple rotation/fallback movement."""
+    team_ids = list(range(1, num_entries + 1))
+    offset = (new_round - 1) % (len(team_ids) - 1)
+    round_matchups = [(team_ids[i], team_ids[(i + offset) % len(team_ids)]) 
+                     for i in range(0, len(team_ids), 2) if i + offset < len(team_ids)]
+    return round_matchups
+
+
 def register_api_routes(app):
     """Register all API routes with the FastAPI app."""
     
@@ -54,44 +118,83 @@ def register_api_routes(app):
                         boards_per_round, scoring_method, movement_type))
         tournament_id = cursor.lastrowid
         
-        # Calculate number of tables
-        if tournament_form == 'pairs':
-            num_tables = (num_entries + 1) // 2
-        else:
-            num_tables = (num_entries + 1) // 2
+        # Calculate number of tables and rounds
+        num_rounds = 0
+        num_tables = 0
         
-        # Calculate number of rounds
         if tournament_form == 'pairs':
+            num_tables = (num_entries + 1) // 2
+            
             if movement_type == 'mitchell':
                 num_rounds = num_entries // 2
             elif movement_type == 'howell':
                 num_rounds = num_entries - 1
             else:
                 num_rounds = 1
-        else:
-            if movement_type == 'round-robin':
-                num_rounds = num_entries - 1
-            elif movement_type == 'swiss':
-                num_rounds = user_num_rounds if user_num_rounds else min(7, num_entries - 1)
-            elif movement_type == 'knockout':
-                num_rounds = math.ceil(math.log2(num_entries))
-            else:
-                num_rounds = 1
+                
+            # Create rounds table entries for pairs
+            for round_num in range(1, num_rounds + 1):
+                for table in range(1, num_tables + 1):
+                    if table * 2 <= num_entries:
+                        entry1 = table * 2 - 1
+                        entry2 = table * 2
+                        start_board = (round_num - 1) * boards_per_round + 1
+                        end_board = round_num * boards_per_round
+                        boards = f"{start_board}-{end_board}"
+                        
+                        cursor.execute("""INSERT INTO rounds 
+                                      (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
+                                      VALUES (?, ?, ?, ?, ?, ?)""",
+                                   (tournament_id, round_num, table, entry1, entry2, boards))
         
-        # Create rounds table entries
-        for round_num in range(1, num_rounds + 1):
-            for table in range(1, num_tables + 1):
-                if table * 2 <= num_entries:
-                    entry1 = table * 2 - 1
-                    entry2 = table * 2
-                    start_board = (round_num - 1) * boards_per_round + 1
-                    end_board = round_num * boards_per_round
-                    boards = f"{start_board}-{end_board}"
-                    
-                    cursor.execute("""INSERT INTO rounds 
-                                  (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
-                                  VALUES (?, ?, ?, ?, ?, ?)""",
-                               (tournament_id, round_num, table, entry1, entry2, boards))
+        elif tournament_form == 'teams':
+            if movement_type == 'round-robin':
+                # For round-robin: each match needs 2 tables (duplicate bridge)
+                num_rounds = num_entries - 1
+                num_tables = (num_entries // 2) * 2  # Each match needs 2 tables
+                
+                # Create rounds table entries for teams round-robin (duplicate)
+                for round_num in range(1, num_rounds + 1):
+                    table_id = 1
+                    for match in range(0, num_entries, 2):
+                        if match + 1 < num_entries:
+                            entry1 = match + 1
+                            entry2 = match + 2
+                            
+                            # Table 1: entry1 NS, entry2 EW
+                            start_board = (round_num - 1) * boards_per_round + 1
+                            end_board = round_num * boards_per_round
+                            boards = f"{start_board}-{end_board}"
+                            
+                            cursor.execute("""INSERT INTO rounds 
+                                          (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
+                                          VALUES (?, ?, ?, ?, ?, ?)""",
+                                       (tournament_id, round_num, table_id, entry1, entry2, boards))
+                            
+                            # Table 2: entry1 EW, entry2 NS (duplicate)
+                            table_id += 1
+                            cursor.execute("""INSERT INTO rounds 
+                                          (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
+                                          VALUES (?, ?, ?, ?, ?, ?)""",
+                                       (tournament_id, round_num, table_id, entry1, entry2, boards))
+                            table_id += 1
+            
+            elif movement_type == 'swiss':
+                # Swiss: calculate expected rounds but don't pre-populate (dynamic pairings)
+                num_rounds = user_num_rounds if user_num_rounds else min(7, num_entries - 1)
+                num_tables = (num_entries // 2) * 2
+                # Don't create rounds - they will be generated by advance_round based on standings
+                
+            elif movement_type == 'knockout':
+                # Knockout: calculate expected rounds but don't pre-populate (dynamic pairings)
+                num_rounds = math.ceil(math.log2(num_entries))
+                num_tables = (num_entries // 2) * 2
+                # Don't create rounds - they will be generated based on match results
+                
+            else:
+                # Unknown movement type for teams
+                num_rounds = 1
+                num_tables = (num_entries // 2) * 2
         
         conn.commit()
 
@@ -511,7 +614,13 @@ def register_api_routes(app):
 
     @app.post("/api/matchup/update")
     async def update_matchup(request: Request):
-        """Update a matchup (change teams/pairs)."""
+        """
+        Update a matchup (change teams/pairs).
+        
+        Purpose:
+        Allows an admin or the system to change the teams/pairs assigned to a specific table 
+        in a specific round (i.e., update the matchup for a table).
+        """
         data = await request.json()
         
         tournament_id = data.get('tournamentId')
@@ -757,6 +866,7 @@ def register_api_routes(app):
         
         tournament_form, movement_type, num_entries, boards_per_round = tournament
         
+        # Validate that all scores for current round are entered
         cursor.execute("""SELECT COUNT(*) FROM rounds WHERE tournament_id = ? AND round_number = ?""",
                        (tournament_id, current_round))
         total_matches = cursor.fetchone()[0]
@@ -777,51 +887,16 @@ def register_api_routes(app):
         new_round = current_round + 1
         
         try:
+            # Generate matchups based on movement type
             if movement_type == 'round-robin':
-                all_rounds = round_robin(num_entries)
-                if new_round - 1 < len(all_rounds):
-                    round_matchups = all_rounds[new_round - 1]
-                else:
-                    return {"status": "error", "message": "No more rounds in round robin"}
+                round_matchups = handle_round_robin(num_entries, new_round)
             elif movement_type == 'swiss':
-                cursor.execute("""SELECT table_id, SUM(vp) as total_vp
-                                  FROM match_results
-                                  WHERE tournament_id = ?
-                                  GROUP BY table_id
-                                  ORDER BY total_vp DESC""", (tournament_id,))
-                standings_results = cursor.fetchall()
-                
-                team_ids = list(range(1, num_entries + 1))
-                
-                standings = {row[0]: float(row[1]) for row in standings_results} if standings_results else {tid: 0.0 for tid in team_ids}
-                
-                cursor.execute("""SELECT entry1_id, entry2_id 
-                                  FROM rounds 
-                                  WHERE tournament_id = ? AND round_number < ?""",
-                               (tournament_id, new_round))
-                previous_matches = cursor.fetchall()
-                
-                previous_opponents = {tid: [] for tid in team_ids}
-                for entry1, entry2 in previous_matches:
-                    if entry1 in previous_opponents:
-                        previous_opponents[entry1].append(entry2)
-                    if entry2 in previous_opponents:
-                        previous_opponents[entry2].append(entry1)
-                
-                pairings = swiss_pairing(team_ids, standings, previous_opponents, new_round)
-                
-                round_matchups = []
-                seen_tables = set()
-                for table_num, room, team_ns, team_ew in pairings:
-                    if table_num not in seen_tables:
-                        round_matchups.append((team_ns, team_ew))
-                        seen_tables.add(table_num)
+                round_matchups = handle_swiss(cursor, tournament_id, num_entries, new_round)
             else:
-                team_ids = list(range(1, num_entries + 1))
-                offset = (new_round - 1) % (len(team_ids) - 1)
-                round_matchups = [(team_ids[i], team_ids[(i + offset) % len(team_ids)]) 
-                                 for i in range(0, len(team_ids), 2) if i + offset < len(team_ids)]
+                # Fallback to rotation for mitchell/howell or unknown types
+                round_matchups = handle_rotation(num_entries, new_round)
             
+            # Insert new round matchups into database
             for table_num, (entry1, entry2) in enumerate(round_matchups, start=1):
                 start_board = (new_round - 1) * boards_per_round + 1
                 end_board = new_round * boards_per_round
