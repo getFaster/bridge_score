@@ -1,19 +1,33 @@
 import sqlite3
-from datetime import datetime
+import os
 
+MASTER_DB_NAME = 'tournaments.db'
 
-def initialize_database(conn):
-    """Initialize database schema and perform migrations if needed."""
+def get_master_conn():
+    conn = sqlite3.connect(MASTER_DB_NAME, check_same_thread=False)
+    return conn
+
+def get_tournament_conn(tournament_id):
+    db_name = f'tournament_{tournament_id}.db'
+    conn = sqlite3.connect(db_name, check_same_thread=False)
+    return conn
+
+def init_master_db():
+    conn = get_master_conn()
     cursor = conn.cursor()
     
-    # Create basic scores table
-    cursor.execute('''CREATE TABLE IF NOT EXISTS scores
+    # Create tournaments table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS tournaments
                         (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT NOT NULL,
-                        score INTEGER NOT NULL,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-    
-    # Create session tokens table
+                        tournament_name TEXT NOT NULL,
+                        tournament_form TEXT NOT NULL,
+                        num_entries INTEGER NOT NULL,
+                        boards_per_round INTEGER NOT NULL,
+                        scoring_method TEXT NOT NULL,
+                        movement_type TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+                        
+    # Create session tokens table (centralized auth)
     cursor.execute('''CREATE TABLE IF NOT EXISTS session_tokens
                         (id INTEGER PRIMARY KEY AUTOINCREMENT,
                         token TEXT UNIQUE NOT NULL,
@@ -22,49 +36,19 @@ def initialize_database(conn):
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         expires_at DATETIME NOT NULL)''')
     
-    # Check if tournaments table exists and migrate if needed
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tournaments'")
-    table_exists = cursor.fetchone()
+    conn.commit()
+    conn.close()
+
+def init_tournament_db(tournament_id):
+    conn = get_tournament_conn(tournament_id)
+    cursor = conn.cursor()
     
-    if table_exists:
-        # Check if old schema exists
-        cursor.execute("PRAGMA table_info(tournaments)")
-        columns = [col[1] for col in cursor.fetchall()]
-        
-        if 'tournament_form' not in columns:
-            # Migrate old schema to new schema
-            print("Migrating tournaments table to new schema...")
-            cursor.execute("ALTER TABLE tournaments RENAME TO tournaments_old")
-            cursor.execute('''CREATE TABLE tournaments
-                                (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                tournament_name TEXT NOT NULL,
-                                tournament_form TEXT NOT NULL,
-                                num_entries INTEGER NOT NULL,
-                                boards_per_round INTEGER NOT NULL,
-                                scoring_method TEXT NOT NULL,
-                                movement_type TEXT NOT NULL,
-                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-            # Copy old data if any exists (default to 'pairs' for old tournaments)
-            cursor.execute("""INSERT INTO tournaments 
-                                (id, tournament_name, tournament_form, num_entries, 
-                                boards_per_round, scoring_method, movement_type, created_at)
-                                SELECT id, tournament_name, 'pairs', 
-                                COALESCE(num_pairs, num_entries, 8),
-                                boards_per_round, scoring_method, movement_type, created_at
-                                FROM tournaments_old""")
-            cursor.execute("DROP TABLE tournaments_old")
-            print("Migration complete!")
-    else:
-        # Create new table
-        cursor.execute('''CREATE TABLE tournaments
-                            (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            tournament_name TEXT NOT NULL,
-                            tournament_form TEXT NOT NULL,
-                            num_entries INTEGER NOT NULL,
-                            boards_per_round INTEGER NOT NULL,
-                            scoring_method TEXT NOT NULL,
-                            movement_type TEXT NOT NULL,
-                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+    # Create basic scores table
+    cursor.execute('''CREATE TABLE IF NOT EXISTS scores
+                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        score INTEGER NOT NULL,
+                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     
     # Create rounds table
     cursor.execute('''CREATE TABLE IF NOT EXISTS rounds
@@ -75,8 +59,7 @@ def initialize_database(conn):
                         entry1_id INTEGER NOT NULL,
                         entry2_id INTEGER NOT NULL,
                         boards TEXT NOT NULL,
-                        status TEXT DEFAULT 'pending',
-                        FOREIGN KEY (tournament_id) REFERENCES tournaments(id))''')
+                        status TEXT DEFAULT 'pending')''')
     
     # Create board results table
     cursor.execute('''CREATE TABLE IF NOT EXISTS board_results
@@ -90,8 +73,7 @@ def initialize_database(conn):
                         vulnerable INTEGER NOT NULL,
                         result INTEGER NOT NULL,
                         score INTEGER NOT NULL,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (tournament_id) REFERENCES tournaments(id))''')
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     
     # Create match results table
     cursor.execute('''CREATE TABLE IF NOT EXISTS match_results
@@ -110,8 +92,7 @@ def initialize_database(conn):
                         (id INTEGER PRIMARY KEY AUTOINCREMENT,
                         tournament_id INTEGER UNIQUE,
                         current_round INTEGER DEFAULT 1,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (tournament_id) REFERENCES tournaments(id))''')
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
     
     # Create table passwords table
     cursor.execute('''CREATE TABLE IF NOT EXISTS table_passwords
@@ -120,11 +101,10 @@ def initialize_database(conn):
                         table_id INTEGER,
                         password TEXT NOT NULL,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE(tournament_id, table_id),
-                        FOREIGN KEY (tournament_id) REFERENCES tournaments(id))''')
+                        UNIQUE(tournament_id, table_id))''')
     
     conn.commit()
-
+    conn.close()
 
 def calculate_match_result(cursor, conn, tournament_id, table1, table2, round_number, boards_per_round):
     """Calculate IMPs and VPs for a completed match."""

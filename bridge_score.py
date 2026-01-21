@@ -3,19 +3,17 @@ from fastapi.responses import FileResponse
 import sqlite3
 from contextlib import asynccontextmanager
 import uvicorn
-from database import initialize_database
+from database import init_master_db
 from api_routes import register_api_routes
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Initialize database
-    app.state.conn = sqlite3.connect('bridge_scores.db', check_same_thread=False)
-    app.state.cursor = app.state.conn.cursor()
-    initialize_database(app.state.conn)
+    # Startup: Initialize master database
+    init_master_db()
     yield
-    # Shutdown: Close database
-    app.state.conn.close()
+    # Shutdown: Nothing to close globally as we use per-request connections
+    pass
 
 
 app = FastAPI(lifespan=lifespan)

@@ -1,5 +1,6 @@
 from fastapi import HTTPException, Request
 from datetime import datetime
+from database import get_master_conn
 
 
 async def verify_token(request: Request) -> dict:
@@ -11,12 +12,16 @@ async def verify_token(request: Request) -> dict:
     
     token = auth_header.replace('Bearer ', '')
     
-    cursor = request.app.state.cursor
+    conn = get_master_conn()
+    cursor = conn.cursor()
     
-    # Check if token exists and is not expired
-    cursor.execute("""SELECT tournament_id, table_id, expires_at FROM session_tokens 
-                      WHERE token = ?""", (token,))
-    result = cursor.fetchone()
+    try:
+        # Check if token exists and is not expired
+        cursor.execute("""SELECT tournament_id, table_id, expires_at FROM session_tokens 
+                          WHERE token = ?""", (token,))
+        result = cursor.fetchone()
+    finally:
+        conn.close()
     
     if not result:
         raise HTTPException(status_code=401, detail="Invalid authentication token")
