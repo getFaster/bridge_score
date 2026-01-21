@@ -19,7 +19,7 @@ def calculate_bridge_score(result: str) -> int:
                         e.g., "4H", "3NTX", "5DX"
         vulnerability_str (str): 'v' for vulnerable, 'n' for not vulnerable
         result >= <level>: level made
-        result <= 1: undertricks (negative)    
+        result <= -1: undertricks (negative)
     
     Returns:
         int: The score for the contract

@@ -103,6 +103,15 @@
             background-color: #7f8c8d;
         }
 
+        .btn-danger {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+
         .tabs {
             display: flex;
             gap: 10px;
@@ -405,6 +414,8 @@
                     <button class="btn btn-success" onclick="advanceRound()">Next Round →</button>
                     <button class="btn btn-secondary" onclick="window.location.href='/table_select'">Enter
                         Scores</button>
+                    <button id="fillAllButton" class="btn btn-danger" onclick="fillAllBoards()"
+                        style="display: none;">🎲 Fill All (Debug)</button>
                 </div>
             </div>
         </div>
@@ -522,6 +533,7 @@
         let activeTournamentRound = 1; // The actual current round of the tournament
         let viewingRound = 1; // The round being viewed/edited
         let isAuthenticated = false;
+        let debugMode = false;
 
         window.onload = function () {
             // Check if already authenticated in session
@@ -529,7 +541,24 @@
             if (authenticated === 'true') {
                 showManagementInterface();
             }
+            // Check debug mode
+            checkDebugMode();
         };
+
+        async function checkDebugMode() {
+            try {
+                const response = await fetch('/api/tournament/debug_mode');
+                const data = await response.json();
+                debugMode = data.debugMode || false;
+
+                // Show/hide Fill All button based on debug mode
+                if (debugMode && isAuthenticated) {
+                    document.getElementById('fillAllButton').style.display = 'inline-block';
+                }
+            } catch (error) {
+                console.error('Error checking debug mode:', error);
+            }
+        }
 
         // Handle login form submission
         document.getElementById('loginForm').addEventListener('submit', async function (e) {
@@ -587,6 +616,10 @@
             document.getElementById('loginContainer').style.display = 'none';
             document.getElementById('managementContainer').style.display = 'block';
             loadTournament();
+            // Show Fill All button if debug mode is enabled
+            if (debugMode) {
+                document.getElementById('fillAllButton').style.display = 'inline-block';
+            }
         }
 
         async function loadTournament() {
@@ -902,6 +935,41 @@
             } catch (error) {
                 console.error('Error:', error);
                 showError('Error swapping tables');
+            }
+        }
+
+        async function fillAllBoards() {
+            if (!debugMode) {
+                showError('Debug mode is not enabled');
+                return;
+            }
+
+            if (!confirm(`Fill all remaining boards in Round ${viewingRound} with random results?\n\nThis will generate random contracts and scores for all boards that don't have results yet.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/debug/fill_all_boards', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tournamentId: tournamentData.id,
+                        round: viewingRound
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showSuccess(`${data.boardsFilled} boards filled with random results`);
+                    loadMatchups();
+                    loadAllScores();
+                } else {
+                    showError(data.detail || 'Error filling boards');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Error filling boards');
             }
         }
 

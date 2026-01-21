@@ -1,11 +1,19 @@
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 import sqlite3
+from argparse import ArgumentParser
 from contextlib import asynccontextmanager
 import uvicorn
 from database import init_master_db
+
+parser = ArgumentParser()
+parser.add_argument("-D", "-d", "--debug", help="Enable debug mode", action="store_true")
+args = parser.parse_args()
+
+import api_routes
 from api_routes import register_api_routes
 
+api_routes.DEBUG_MODE = args.debug
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,9 +25,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-
 # Register all API routes
 register_api_routes(app)
+
 
 # HTML page routes
 @app.get("/")
@@ -42,7 +50,5 @@ async def read_management():
 async def read_score_entry():
     return FileResponse('html/score_entry.html')
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     uvicorn.run('bridge_score:app', host='127.0.0.1', port=8000, reload=True)
-

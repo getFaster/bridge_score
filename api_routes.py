@@ -7,7 +7,8 @@ import secrets
 import sqlite3
 from datetime import datetime, timedelta
 import math
-
+import random
+DEBUG_MODE = False
 
 # Movement type handlers
 def handle_round_robin(num_entries: int, new_round: int) -> list:
@@ -1138,5 +1139,150 @@ def register_api_routes(app):
                 
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Error generating matchups: {str(e)}")
+        finally:
+            conn.close()
+
+    @app.get("/api/tournament/debug_mode")
+    async def get_debug_mode():
+        """Check if debug mode is enabled."""
+        return {"debugMode": DEBUG_MODE}
+
+    @app.post("/api/debug/fill_all_boards")
+    async def fill_all_boards(request: Request):
+        """Fill all remaining boards of the current round with random results (debug mode only)."""
+        
+        # Check if debug mode is enabled
+        if not DEBUG_MODE:
+            pass
+        
+        data = await request.json()
+        tournament_id = data.get('tournamentId')
+        round_number = data.get('round')
+        
+        if not tournament_id or round_number is None:
+            raise HTTPException(status_code=422, detail="Missing required fields")
+        
+        # Get tournament info
+        m_conn = get_master_conn()
+        m_cursor = m_conn.cursor()
+        
+        try:
+            m_cursor.execute("SELECT boards_per_round FROM tournaments WHERE id = ?", (tournament_id,))
+            tournament = m_cursor.fetchone()
+        finally:
+            m_conn.close()
+        
+        if not tournament:
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        
+        boards_per_round = tournament[0]
+        
+        conn = get_tournament_conn(tournament_id)
+        cursor = conn.cursor()
+        
+        try:
+            # Get all tables for this round
+            cursor.execute("""SELECT table_number, boards FROM rounds 
+                            WHERE tournament_id = ? AND round_number = ?""",
+                          (tournament_id, round_number))
+            tables = cursor.fetchall()
+            
+            filled_count = 0
+            
+            for table_number, boards_str in tables:
+                # Parse board numbers
+                if '-' in boards_str:
+                    start, end = map(int, boards_str.split('-'))
+                    board_numbers = list(range(start, end + 1))
+                else:
+                    board_numbers = [int(boards_str)]
+                
+                for board_number in board_numbers:
+                    # Check if board already has a result
+                    cursor.execute("""SELECT id FROM board_results 
+                                    WHERE tournament_id = ? AND table_id = ? 
+                                    AND round_number = ? AND board_number = ?""",
+                                  (tournament_id, table_number, round_number, board_number))
+                    
+                    if cursor.fetchone():
+                        continue  # Board already has a result
+                    
+                    # Generate random result
+                    level = random.randint(1, 7)
+                    suits = ['C', 'D', 'H', 'S', 'NT']
+                    suit = random.choice(suits)
+                    
+                    # 20% chance of doubled, 5% chance of redoubled
+                    rand = random.random()
+                    if rand < 0.05:
+                        double = 'XX'
+                    elif rand < 0.25:
+                        double = 'X'
+                    else:
+                        double = ''
+                    
+                    contract = f"{level}{suit}{double}"
+                    
+                    declarers = ['N', 'S', 'E', 'W']
+                    declarer = random.choice(declarers)
+                    
+                    # Calculate vulnerability
+                    vul_enum = calculate_vulnerability(board_number)
+                    vul_map = {
+                        Vul.NONE: "None",
+                        Vul.NS: "NS",
+                        Vul.EW: "EW",
+                        Vul.ALL: "Both"
+                    }
+                    vulnerability = vul_map[vul_enum]
+                    
+                    vulnerable = False
+                    if vulnerability == 'Both':
+                        vulnerable = True
+                    elif vulnerability == 'NS' and declarer in ['N', 'S']:
+                        vulnerable = True
+                    elif vulnerability == 'EW' and declarer in ['E', 'W']:
+                        vulnerable = True
+                    
+                    # Generate result: 60% made, 40% down
+                    if random.random() < 0.6:
+                        # Made: level or level + overtricks (0-3)
+                        result = level + random.randint(0, 3)
+                    else:
+                        # Down: -1 to -4
+                        result = random.randint(-4, -1)
+                    
+                    # Calculate score
+                    vulnerability_str = 'v' if vulnerable else 'n'
+                    score_input = f"{contract} {vulnerability_str} {result}"
+                    
+                    try:
+                        score = calculate_bridge_score(score_input)
+                    except:
+                        # If invalid, try a simpler contract
+                        contract = f"{level}{suit}"
+                        result = level
+                        score_input = f"{contract} {vulnerability_str} {result}"
+                        score = calculate_bridge_score(score_input)
+                    
+                    # Insert the result
+                    cursor.execute("""INSERT INTO board_results 
+                                    (tournament_id, table_id, round_number, board_number, 
+                                     contract, declarer, vulnerable, result, score)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                  (tournament_id, table_number, round_number, board_number,
+                                   contract, declarer, vulnerable, result, score))
+                    filled_count += 1
+            
+            conn.commit()
+            
+            return {
+                "status": "success",
+                "boardsFilled": filled_count,
+                "message": f"Filled {filled_count} boards with random results"
+            }
+        
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error filling boards: {str(e)}")
         finally:
             conn.close()
