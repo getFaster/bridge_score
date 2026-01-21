@@ -236,6 +236,12 @@
             background-color: #2980b9;
         }
 
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -347,7 +353,29 @@
 </head>
 
 <body>
-    <div class="container">
+    <!-- Login Form -->
+    <div id="loginContainer" class="container" style="max-width: 500px; display: block;">
+        <h1>Tournament Management</h1>
+        <p class="subtitle" style="text-align: center; color: #7f8c8d; margin-bottom: 30px;">Director Authentication
+            Required</p>
+
+        <div class="message error" id="loginError" style="display: none;"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="directorPassword">Director Password:</label>
+                <input type="password" id="directorPassword" placeholder="Enter director password" required autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Access Management</button>
+        </form>
+
+        <div style="margin-top: 20px; text-align: center;">
+            <a href="/" class="back-link">← Back to Main</a>
+        </div>
+    </div>
+
+    <!-- Management Interface (hidden until authenticated) -->
+    <div class="container" id="managementContainer" style="display: none;">
         <a href="/" class="back-link">← Back to Main</a>
 
         <div class="tournament-header">
@@ -493,10 +521,73 @@
         let tournamentData = null;
         let activeTournamentRound = 1; // The actual current round of the tournament
         let viewingRound = 1; // The round being viewed/edited
+        let isAuthenticated = false;
 
         window.onload = function () {
-            loadTournament();
+            // Check if already authenticated in session
+            const authenticated = sessionStorage.getItem('directorAuthenticated');
+            if (authenticated === 'true') {
+                showManagementInterface();
+            }
         };
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const password = document.getElementById('directorPassword').value;
+
+            try {
+                // First, get the tournament ID
+                const tournamentResponse = await fetch('/api/tournament/current');
+                const tournamentData = await tournamentResponse.json();
+
+                if (tournamentData.status === 'none' || !tournamentData.id) {
+                    showLoginError('No tournament configured. Please set up a tournament first.');
+                    return;
+                }
+
+                // Verify the director password
+                const response = await fetch('/api/director/verify_password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        tournamentId: tournamentData.id,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.authenticated) {
+                    // Store authentication state in session
+                    sessionStorage.setItem('directorAuthenticated', 'true');
+                    showManagementInterface();
+                } else {
+                    showLoginError('Incorrect password. Please try again.');
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showLoginError('Incorrect password. Please try again.');
+            }
+        });
+
+        function showLoginError(message) {
+            const errorElem = document.getElementById('loginError');
+            errorElem.textContent = message;
+            errorElem.style.display = 'block';
+            document.getElementById('directorPassword').value = '';
+            document.getElementById('directorPassword').focus();
+        }
+
+        function showManagementInterface() {
+            isAuthenticated = true;
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('managementContainer').style.display = 'block';
+            loadTournament();
+        }
 
         async function loadTournament() {
             try {

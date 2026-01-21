@@ -183,6 +183,13 @@
                     <label for="tournamentName">Tournament Name:</label>
                     <input type="text" id="tournamentName" placeholder="e.g., Monthly Club Championship" required>
                 </div>
+                <!-- Director Password -->
+                <div class="form-group">
+                    <label for="password">Tournament Director Password (Optional):</label>
+                    <input type="text" id="password" placeholder="Set a password to protect management features">
+                    <div class="info-text">If set, this password will be required to access the tournament management
+                        page.</div>
+                </div>
                 <div class="form-group">
                     <label for="tournamentForm">Tournament Form:</label>
                     <select id="tournamentForm" required>
@@ -342,13 +349,15 @@
             e.preventDefault();
 
             const movementType = document.getElementById('movementType').value;
+            const password = document.getElementById('password').value.trim();
             const tournamentData = {
                 tournamentName: document.getElementById('tournamentName').value,
                 tournamentForm: document.getElementById('tournamentForm').value,
                 numEntries: parseInt(document.getElementById('numEntries').value),
                 boardsPerRound: parseInt(document.getElementById('boardsPerRound').value),
                 scoringMethod: document.getElementById('scoringMethod').value,
-                movementType: movementType
+                movementType: movementType,
+                password: password || null
             };
 
             // Add numRounds only for swiss

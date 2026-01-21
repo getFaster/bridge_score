@@ -25,6 +25,7 @@ def init_master_db():
                         boards_per_round INTEGER NOT NULL,
                         scoring_method TEXT NOT NULL,
                         movement_type TEXT NOT NULL,
+                        director_password TEXT,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
                         
     # Create session tokens table (centralized auth)

@@ -116,6 +116,7 @@ def register_api_routes(app):
         scoring_method = data.get('scoringMethod')
         movement_type = data.get('movementType')
         user_num_rounds = data.get('numRounds')
+        director_password = data.get('password')
         
         if not tournament_name or not tournament_form or not num_entries:
             raise HTTPException(status_code=422, detail="Missing required fields")
@@ -127,10 +128,10 @@ def register_api_routes(app):
             # Insert tournament
             master_cursor.execute("""INSERT INTO tournaments 
                             (tournament_name, tournament_form, num_entries, 
-                            boards_per_round, scoring_method, movement_type) 
-                            VALUES (?, ?, ?, ?, ?, ?)""",
+                            boards_per_round, scoring_method, movement_type, director_password) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)""",
                         (tournament_name, tournament_form, num_entries, 
-                            boards_per_round, scoring_method, movement_type))
+                            boards_per_round, scoring_method, movement_type, director_password))
             tournament_id = master_cursor.lastrowid
             master_conn.commit()
         finally:
@@ -1001,6 +1002,41 @@ def register_api_routes(app):
             return {"status": "success", "token": token}
         finally:
             m_conn.close()
+
+    @app.post("/api/director/verify_password")
+    async def verify_director_password(request: Request):
+        """Verify director password and return authentication status."""
+        data = await request.json()
+        
+        tournament_id = data.get('tournamentId')
+        password = data.get('password')
+        
+        if not tournament_id:
+            raise HTTPException(status_code=422, detail="Missing tournament ID")
+        
+        m_conn = get_master_conn()
+        m_cursor = m_conn.cursor()
+        
+        try:
+            m_cursor.execute("""SELECT director_password FROM tournaments WHERE id = ?""", (tournament_id,))
+            result = m_cursor.fetchone()
+        finally:
+            m_conn.close()
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Tournament not found")
+        
+        stored_password = result[0]
+        
+        # If no password is set, allow access
+        if not stored_password:
+            return {"status": "success", "authenticated": True, "message": "No password required"}
+        
+        # Check if provided password matches
+        if password == stored_password:
+            return {"status": "success", "authenticated": True, "message": "Password correct"}
+        else:
+            raise HTTPException(status_code=401, detail="Incorrect password")
 
     @app.post("/api/tournament/advance_round")
     async def advance_round(request: Request):
