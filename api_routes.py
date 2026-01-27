@@ -618,11 +618,7 @@ def register_api_routes(app):
             
             if settings:
                 return {"currentRound": settings[0]}
-            
-            cursor.execute("SELECT MAX(round_number) FROM rounds WHERE tournament_id = ?", (tournament_id,))
-            max_round = cursor.fetchone()[0]
-            
-            return {"currentRound": max_round if max_round else 1}
+            return {"currentRound": 1}
         finally:
             conn.close()
 
