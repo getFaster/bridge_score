@@ -11,24 +11,6 @@ import random
 DEBUG_MODE = False
 
 # Movement type handlers
-def handle_round_robin(num_entries: int, new_round: int) -> list:
-    """Generate matchups for round-robin movement."""
-    all_rounds = round_robin(num_entries)
-    if new_round - 1 >= len(all_rounds):
-        raise ValueError("No more rounds in round robin")
-
-    round_pairings = all_rounds[new_round - 1]
-    # Filter out bye matches (bye team is num_entries + 1 when num_entries is odd)
-    if num_entries % 2 == 1:
-        bye_team = num_entries + 1
-        round_pairings = [
-            (team1, team2)
-            for team1, team2 in round_pairings
-            if team1 != bye_team and team2 != bye_team
-        ]
-    return round_pairings
-
-
 def handle_swiss(cursor, tournament_id: int, num_entries: int, new_round: int) -> list:
     """Generate matchups for Swiss movement."""
     # Get current standings
@@ -1088,7 +1070,8 @@ def register_api_routes(app):
             try:
                 # Generate matchups based on movement type
                 if movement_type == 'round-robin':
-                    round_matchups = handle_round_robin(num_entries, new_round)
+                    #round_matchups = handle_round_robin(num_entries, new_round)
+                    pass
                 elif movement_type == 'swiss':
                     round_matchups = handle_swiss(cursor, tournament_id, num_entries, new_round)
                 else:
@@ -1097,23 +1080,7 @@ def register_api_routes(app):
                 
                 # Insert new round matchups into database
                 if movement_type == 'round-robin' and tournament_form == 'teams':
-                    table_num = 1
-                    for entry1, entry2 in round_matchups:
-                        start_board = (new_round - 1) * boards_per_round + 1
-                        end_board = new_round * boards_per_round
-                        boards = f"{start_board}-{end_board}"
-
-                        cursor.execute("""INSERT INTO rounds 
-                                        (tournament_id, round_number, table_number, entry1_id, entry2_id, boards, status)
-                                        VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
-                                    (tournament_id, new_round, table_num, entry1, entry2, boards))
-
-                        table_num += 1
-                        cursor.execute("""INSERT INTO rounds 
-                                        (tournament_id, round_number, table_number, entry1_id, entry2_id, boards, status)
-                                        VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
-                                    (tournament_id, new_round, table_num, entry2, entry1, boards))
-                        table_num += 1
+                    pass
                 else:
                     for table_num, (entry1, entry2) in enumerate(round_matchups, start=1):
                         start_board = (new_round - 1) * boards_per_round + 1
@@ -1124,15 +1091,17 @@ def register_api_routes(app):
                                         (tournament_id, round_number, table_number, entry1_id, entry2_id, boards, status)
                                         VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
                                     (tournament_id, new_round, table_num, entry1, entry2, boards))
-                
+
+                cursor.execute("""INSERT OR REPLACE INTO tournament_settings 
+                            (tournament_id, current_round)
+                            VALUES (?, ?)""",
+                        (tournament_id, new_round))
                 conn.commit()
-                
                 return {
                     "status": "success",
                     "newRound": new_round,
                     "message": f"Advanced to round {new_round}"
-                }
-                
+                }            
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Error generating matchups: {str(e)}")
         finally:
