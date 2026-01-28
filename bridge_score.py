@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
-import sqlite3
 from argparse import ArgumentParser
 from contextlib import asynccontextmanager
 import uvicorn

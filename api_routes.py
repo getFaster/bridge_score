@@ -24,7 +24,10 @@ def handle_swiss(cursor, tournament_id: int, num_entries: int, new_round: int) -
     team_ids = list(range(1, num_entries + 1))
     
     # Build standings dictionary
-    standings = {row[0]: float(row[1]) for row in standings_results} if standings_results else {tid: 0.0 for tid in team_ids}
+    if standings_results:
+        standings = {row[0]: float(row[1]) for row in standings_results}
+    else:
+        standings = {tid: 0.0 for tid in team_ids}
     
     # Build previous opponents dictionary
     cursor.execute("""SELECT entry1_id, entry2_id 

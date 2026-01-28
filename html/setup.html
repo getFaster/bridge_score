@@ -287,6 +287,10 @@
                         <option value="swiss">Swiss</option>
                         <option value="round-robin">Round Robin</option>
                     `;
+                    document.getElementById('scoringMethod').innerHTML = `
+                        <option value="IMP">IMPs</option>
+                        <option value="BAM">Board-a-Match (BAM)</option>
+                    `;
                 } else {
                     label.textContent = 'Number of Pairs:';
                     info.textContent = 'Total pairs participating';
