@@ -722,7 +722,7 @@
                 const data = await response.json();
 
                 if (data.matchups) {
-                    const matchup = data.matchups.find(m => m.tableNumber == currentTableId);
+                    const matchup = data.matchups.find(m => m.tableID == currentTableId);
                     if (matchup) {
                         const entryLabel = tournamentData.tournamentForm === 'teams' ? 'Team' : 'Pair';
                         document.getElementById('matchupInfo').textContent =
@@ -840,6 +840,7 @@
                 input.min = selectedContract.level || 1;
                 input.max = 7;
                 input.value = input.min;
+                selectedContract.tricks = input.min;
             }
 
             function setDownTricksResult() {
@@ -848,6 +849,7 @@
                 input.min = 1;
                 input.max = selectedContract.level ? 6 + parseInt(selectedContract.level) : 13;
                 input.value = input.min;
+                selectedContract.tricks = 1;
             }
 
             // Level buttons
@@ -944,13 +946,14 @@
             if (level && suit && declarer && vulnerability !== null && tricks > 0) {
                 const score = calculateScore();
                 document.getElementById('scoreDisplay').textContent = `Score: ${score >= 0 ? '+' : ''}${score}`;
+                document.getElementById('submitBtn').disabled = false;
             } else {
                 document.getElementById('scoreDisplay').textContent = 'Score will appear here';
             }
 
             // Enable submit button if all required fields are filled
             const canSubmit = level && suit && declarer && vulnerability !== null && tricks > 0;
-            document.getElementById('submitBtn').disabled = !canSubmit;
+            //document.getElementById('submitBtn').disabled = !canSubmit;
         }
 
         function calculateScore() {
