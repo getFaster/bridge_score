@@ -16,9 +16,8 @@ def handle_swiss(cursor, tournament_id: int, num_entries: int, new_round: int) -
     # Get current standings
     cursor.execute("""SELECT table_id, SUM(vp) as total_vp
                       FROM match_results
-                      WHERE tournament_id = ?
                       GROUP BY table_id
-                      ORDER BY total_vp DESC""", (tournament_id,))
+                      ORDER BY total_vp DESC""")
     standings_results = cursor.fetchall()
     
     team_ids = list(range(1, num_entries + 1))
@@ -32,8 +31,8 @@ def handle_swiss(cursor, tournament_id: int, num_entries: int, new_round: int) -
     # Build previous opponents dictionary
     cursor.execute("""SELECT entry1_id, entry2_id 
                       FROM rounds 
-                      WHERE tournament_id = ? AND round_number < ?""",
-                   (tournament_id, new_round))
+                      WHERE round_number < ?""",
+                   (new_round,))
     previous_matches = cursor.fetchall()
     
     previous_opponents = {tid: [] for tid in team_ids}
@@ -47,14 +46,14 @@ def handle_swiss(cursor, tournament_id: int, num_entries: int, new_round: int) -
     pairings = swiss_pairing(team_ids, standings, previous_opponents, new_round)
     
     # Convert from swiss_pairing format to simple matchup format
-    # swiss_pairing returns: List[Tuple[int, str, int, int]] = (table_number, room, team_ns, team_ew)
+    # swiss_pairing returns: List[Tuple[int, str, int, int]] = (table_id, room, team_ns, team_ew)
     # We need: List[Tuple[int, int]] = (team1, team2)
     round_matchups = []
     seen_tables = set()
-    for table_num, room, team_ns, team_ew in pairings:
-        if table_num not in seen_tables:
+    for table_id, room, team_ns, team_ew in pairings:
+        if table_id not in seen_tables:
             round_matchups.append((team_ns, team_ew))
-            seen_tables.add(table_num)
+            seen_tables.add(table_id)
     
     return round_matchups
 
@@ -155,9 +154,9 @@ def register_api_routes(app):
                             boards = f"{start_board}-{end_board}"
                             
                             cursor.execute("""INSERT INTO rounds 
-                                        (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
-                                        VALUES (?, ?, ?, ?, ?, ?)""",
-                                    (tournament_id, round_num, table, entry1, entry2, boards))
+                                        (round_number, table_id, entry1_id, entry2_id, boards) 
+                                        VALUES (?, ?, ?, ?, ?)""",
+                                    (round_num, table, entry1, entry2, boards))
             
             elif tournament_form == 'teams':
                 num_tables = (num_entries // 2) * 2  # Each match needs 2 tables
@@ -185,16 +184,16 @@ def register_api_routes(app):
                             boards = f"{start_board}-{end_board}"
 
                             cursor.execute("""INSERT INTO rounds 
-                                        (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
-                                        VALUES (?, ?, ?, ?, ?, ?)""",
-                                    (tournament_id, round_num, table_id_counter, entry1, entry2, boards))
+                                        (round_number, table_id, entry1_id, entry2_id, boards) 
+                                        VALUES (?, ?, ?, ?, ?)""",
+                                    (round_num, table_id_counter, entry1, entry2, boards))
 
                             # Table 2: entry1 EW, entry2 NS (duplicate)
                             table_id_counter += 1
                             cursor.execute("""INSERT INTO rounds 
-                                        (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
-                                        VALUES (?, ?, ?, ?, ?, ?)""",
-                                    (tournament_id, round_num, table_id_counter, entry2, entry1, boards))
+                                        (round_number, table_id, entry1_id, entry2_id, boards) 
+                                        VALUES (?, ?, ?, ?, ?)""",
+                                    (round_num, table_id_counter, entry2, entry1, boards))
                             table_id_counter += 1
                 
                 elif movement_type == 'swiss':
@@ -207,9 +206,9 @@ def register_api_routes(app):
                     random.shuffle(teams)
                     for tables in range(1, num_tables + 1):
                         cursor.execute("""INSERT INTO rounds 
-                                    (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
-                                    VALUES (?, ?, ?, ?, ?, ?)""",
-                                (tournament_id, 1, tables, teams[tables // 2], teams[tables // 2 + 1], f"1-{boards_per_round}"))
+                                    (round_number, table_id, entry1_id, entry2_id, boards) 
+                                    VALUES (?, ?, ?, ?, ?)""",
+                                (1, tables, teams[tables // 2], teams[tables // 2 + 1], f"1-{boards_per_round}"))
                     # Don't create rounds - they will be generated by advance_round based on standings
 
                 elif movement_type == 'knockout':
@@ -217,9 +216,9 @@ def register_api_routes(app):
                     num_rounds = math.ceil(math.log2(num_entries))
                     for tables in range(1, (num_entries // 2) * 2 + 1):
                         cursor.execute("""INSERT INTO rounds 
-                                    (tournament_id, round_number, table_number, entry1_id, entry2_id, boards) 
-                                    VALUES (?, ?, ?, ?, ?, ?)""",
-                                (tournament_id, 1, tables, None, None, f"1-{boards_per_round}"))
+                                    (round_number, table_id, entry1_id, entry2_id, boards) 
+                                    VALUES (?, ?, ?, ?, ?)""",
+                                (1, tables, None, None, f"1-{boards_per_round}"))
                     # Don't create rounds - they will be generated based on match results
                 
             else:
@@ -257,7 +256,7 @@ def register_api_routes(app):
             t_conn = get_tournament_conn(tournament_id)
             t_cursor = t_conn.cursor()
             try:
-                t_cursor.execute("SELECT COUNT(DISTINCT round_number) FROM rounds WHERE tournament_id = ?", (tournament_id,))
+                t_cursor.execute("SELECT COUNT(DISTINCT round_number) FROM rounds")
                 num_rounds_result = t_cursor.fetchone()
                 num_rounds = num_rounds_result[0] if num_rounds_result else 0
             except sqlite3.OperationalError:
@@ -285,7 +284,7 @@ def register_api_routes(app):
         cursor = conn.cursor()
         
         try:
-            cursor.execute("SELECT * FROM rounds WHERE tournament_id = ? ORDER BY round_number, table_number", (tournament_id,))
+            cursor.execute("SELECT * FROM rounds ORDER BY round_number, table_id")
             results = cursor.fetchall()
         finally:
             conn.close()
@@ -296,7 +295,7 @@ def register_api_routes(app):
                 "id": row[0],
                 "tournamentId": row[1],
                 "roundNumber": row[2],
-                "tableNumber": row[3],
+                "tableId": row[3],
                 "entry1Id": row[4],
                 "entry2Id": row[5],
                 "boards": row[6],
@@ -346,8 +345,8 @@ def register_api_routes(app):
         cursor = conn.cursor()
         
         try:
-            cursor.execute("SELECT boards FROM rounds WHERE tournament_id = ? AND table_number = ? AND round_number = ?",
-                        (tournament_id, table_id, round_number))
+            cursor.execute("SELECT boards FROM rounds WHERE table_id = ? AND round_number = ?",
+                        (table_id, round_number))
             round_data = cursor.fetchone()
             
             if not round_data:
@@ -362,8 +361,8 @@ def register_api_routes(app):
             
             boards = []
             for board_num in board_numbers:
-                cursor.execute("SELECT id FROM board_results WHERE tournament_id = ? AND table_id = ? AND round_number = ? AND board_number = ?",
-                            (tournament_id, table_id, round_number, board_num))
+                cursor.execute("SELECT id FROM board_results WHERE table_id = ? AND round_number = ? AND board_number = ?",
+                            (table_id, round_number, board_num))
                 completed = cursor.fetchone() is not None
                 
                 boards.append({
@@ -418,18 +417,15 @@ def register_api_routes(app):
             elif vulnerability == 'EW' and (declarer == 'E' or declarer == 'W'):
                 vulnerable = True
             
-            vulnerability_str = 'v' if vulnerable else 'm'
-            score_input = f"{contract} {vulnerability_str} {result}"
-            
             try:
-                score = calculate_bridge_score(score_input)
+                score = calculate_bridge_score(contract, vulnerable, int(result))
                 if declarer in ['E', 'W']:
                     score = -score
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Error calculating score: {str(e)}")
             
-            cursor.execute("SELECT id FROM board_results WHERE tournament_id = ? AND table_id = ? AND round_number = ? AND board_number = ?",
-                        (tournament_id, table_id, round_number, board_number))
+            cursor.execute("SELECT id FROM board_results WHERE table_id = ? AND round_number = ? AND board_number = ?",
+                        (table_id, round_number, board_number))
             existing = cursor.fetchone()
             
             if existing:
@@ -439,14 +435,16 @@ def register_api_routes(app):
                             (contract, declarer, vulnerable, result, score, existing[0]))
             else:
                 cursor.execute("""INSERT INTO board_results 
-                                (tournament_id, table_id, round_number, board_number, contract, declarer, vulnerable, result, score)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                            (tournament_id, table_id, round_number, board_number, contract, declarer, vulnerable, result, score))
+                                (table_id, round_number, board_number, contract, declarer, vulnerable, result, score)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                            (table_id, round_number, board_number, contract, declarer, vulnerable, result, score))
             
             conn.commit()
             
             print(f"Score submitted: Table {table_id}, Board {board_number}, Contract {contract}, Score {score}")
             return {"status": "success", "score": score, "message": "Score saved successfully"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
         finally:
             conn.close()
 
@@ -474,13 +472,13 @@ def register_api_routes(app):
         try:
             cursor.execute("""SELECT board_number, contract, declarer, result, score 
                             FROM board_results 
-                            WHERE tournament_id = ? AND table_id = ? AND round_number = ?
+                            WHERE table_id = ? AND round_number = ?
                             ORDER BY board_number""",
-                        (tournament_id, table_id, round_number))
+                        (table_id, round_number))
             results_data = cursor.fetchall()
             
-            cursor.execute("SELECT boards FROM rounds WHERE tournament_id = ? AND table_number = ? AND round_number = ?",
-                        (tournament_id, table_id, round_number))
+            cursor.execute("SELECT boards FROM rounds WHERE table_id = ? AND round_number = ?",
+                        (table_id, round_number))
             round_data = cursor.fetchone()
             
             all_complete = False
@@ -533,8 +531,8 @@ def register_api_routes(app):
         cursor = conn.cursor()
         
         try:
-            cursor.execute("UPDATE rounds SET status = 'complete' WHERE tournament_id = ? AND table_number = ? AND round_number = ?",
-                        (tournament_id, table_id, round_number))
+            cursor.execute("UPDATE rounds SET status = 'complete' WHERE table_id = ? AND round_number = ?",
+                        (table_id, round_number))
             conn.commit()
             
             if table_id % 2 == 1:
@@ -542,8 +540,8 @@ def register_api_routes(app):
             else:
                 opponent_table = table_id - 1
             
-            cursor.execute("SELECT status FROM rounds WHERE tournament_id = ? AND table_number = ? AND round_number = ?",
-                        (tournament_id, opponent_table, round_number))
+            cursor.execute("SELECT status FROM rounds WHERE table_id = ? AND round_number = ?",
+                        (opponent_table, round_number))
             opponent_status = cursor.fetchone()
             
             match_complete = False
@@ -583,8 +581,8 @@ def register_api_routes(app):
         try:
             cursor.execute("""SELECT total_score, opponent_score, imps, vp 
                             FROM match_results 
-                            WHERE tournament_id = ? AND table_id = ? AND round_number = ?""",
-                        (tournament_id, table_id, round_number))
+                            WHERE table_id = ? AND round_number = ?""",
+                        (table_id, round_number))
             result = cursor.fetchone()
             
             if result:
@@ -611,7 +609,7 @@ def register_api_routes(app):
         cursor = conn.cursor()
         
         try:
-            cursor.execute("SELECT current_round FROM tournament_settings WHERE tournament_id = ?", (tournament_id,))
+            cursor.execute("SELECT current_round FROM tournament_settings")
             settings = cursor.fetchone()
             
             if settings:
@@ -627,8 +625,7 @@ def register_api_routes(app):
         cursor = conn.cursor()
         
         try:
-            cursor.execute("SELECT DISTINCT round_number FROM rounds WHERE tournament_id = ? ORDER BY round_number", 
-                        (tournament_id,))
+            cursor.execute("SELECT DISTINCT round_number FROM rounds ORDER BY round_number")
             results = cursor.fetchall()
             
             rounds = [row[0] for row in results]
@@ -647,18 +644,18 @@ def register_api_routes(app):
         cursor = conn.cursor()
         
         try:
-            cursor.execute("""SELECT id, table_number, entry1_id, entry2_id, boards, status 
+            cursor.execute("""SELECT id, table_id, entry1_id, entry2_id, boards, status 
                             FROM rounds 
-                            WHERE tournament_id = ? AND round_number = ?
-                            ORDER BY table_number""",
-                        (tournament_id, round_number))
+                            WHERE round_number = ?
+                            ORDER BY table_id""",
+                        (round_number,))
             results = cursor.fetchall()
             
             matchups = []
             for row in results:
                 matchups.append({
                     "id": row[0],
-                    "tableNumber": row[1],
+                    "tableId": row[1],
                     "entry1Id": row[2],
                     "entry2Id": row[3],
                     "boards": row[4],
@@ -678,9 +675,9 @@ def register_api_routes(app):
         try:
             cursor.execute("""SELECT id, table_id, board_number, contract, declarer, result, score
                             FROM board_results
-                            WHERE tournament_id = ? AND round_number = ?
+                            WHERE round_number = ?
                             ORDER BY table_id, board_number""",
-                        (tournament_id, round_number))
+                        (round_number,))
             results = cursor.fetchall()
             
             scores = []
@@ -741,11 +738,11 @@ def register_api_routes(app):
         
         tournament_id = data.get('tournamentId')
         round_number = data.get('round')
-        table_number = data.get('tableNumber')
+        table_id = data.get('tableId')
         entry1_id = data.get('entry1Id')
         entry2_id = data.get('entry2Id')
         
-        if not all([tournament_id, round_number, table_number, entry1_id, entry2_id]):
+        if not all([tournament_id, round_number, table_id, entry1_id, entry2_id]):
             raise HTTPException(status_code=422, detail="Missing required fields")
         
         conn = get_tournament_conn(tournament_id)
@@ -754,8 +751,8 @@ def register_api_routes(app):
         try:
             cursor.execute("""UPDATE rounds 
                             SET entry1_id = ?, entry2_id = ?
-                            WHERE tournament_id = ? AND round_number = ? AND table_number = ?""",
-                        (entry1_id, entry2_id, tournament_id, round_number, table_number))
+                            WHERE round_number = ? AND table_id = ?""",
+                        (entry1_id, entry2_id, round_number, table_id))
             conn.commit()
             
             return {"status": "success", "message": "Matchup updated successfully"}
@@ -781,14 +778,14 @@ def register_api_routes(app):
         try:
             cursor.execute("""SELECT entry1_id, entry2_id, boards 
                             FROM rounds 
-                            WHERE tournament_id = ? AND round_number = ? AND table_number = ?""",
-                        (tournament_id, round_number, table1))
+                            WHERE round_number = ? AND table_id = ?""",
+                        (round_number, table1))
             matchup1 = cursor.fetchone()
             
             cursor.execute("""SELECT entry1_id, entry2_id, boards 
                             FROM rounds 
-                            WHERE tournament_id = ? AND round_number = ? AND table_number = ?""",
-                        (tournament_id, round_number, table2))
+                            WHERE round_number = ? AND table_id = ?""",
+                        (round_number, table2))
             matchup2 = cursor.fetchone()
             
             if not matchup1 or not matchup2:
@@ -796,23 +793,23 @@ def register_api_routes(app):
             
             cursor.execute("""UPDATE rounds 
                             SET entry1_id = ?, entry2_id = ?, boards = ?
-                            WHERE tournament_id = ? AND round_number = ? AND table_number = ?""",
-                        (matchup2[0], matchup2[1], matchup2[2], tournament_id, round_number, table1))
+                            WHERE round_number = ? AND table_id = ?""",
+                        (matchup2[0], matchup2[1], matchup2[2], round_number, table1))
             
             cursor.execute("""UPDATE rounds 
                             SET entry1_id = ?, entry2_id = ?, boards = ?
-                            WHERE tournament_id = ? AND round_number = ? AND table_number = ?""",
-                        (matchup1[0], matchup1[1], matchup1[2], tournament_id, round_number, table2))
+                            WHERE round_number = ? AND table_id = ?""",
+                        (matchup1[0], matchup1[1], matchup1[2], round_number, table2))
             
             cursor.execute("""UPDATE board_results SET table_id = -1
-                            WHERE tournament_id = ? AND round_number = ? AND table_id = ?""",
-                        (tournament_id, round_number, table1))
+                            WHERE round_number = ? AND table_id = ?""",
+                        (round_number, table1))
             cursor.execute("""UPDATE board_results SET table_id = ?
-                            WHERE tournament_id = ? AND round_number = ? AND table_id = ?""",
-                        (table1, tournament_id, round_number, table2))
+                            WHERE round_number = ? AND table_id = ?""",
+                        (table1, round_number, table2))
             cursor.execute("""UPDATE board_results SET table_id = ?
-                            WHERE tournament_id = ? AND round_number = ? AND table_id = -1""",
-                        (table2, tournament_id, round_number))
+                            WHERE round_number = ? AND table_id = -1""",
+                        (table2, round_number))
             
             conn.commit()
             
@@ -836,16 +833,16 @@ def register_api_routes(app):
         
         try:
             cursor.execute("""SELECT COUNT(*) FROM rounds 
-                            WHERE tournament_id = ? AND round_number = ?""",
-                        (tournament_id, round_number))
+                             WHERE round_number = ?""",
+                        (round_number,))
             
             if cursor.fetchone()[0] == 0:
                 raise HTTPException(status_code=404, detail=f"Round {round_number} does not exist")
             
             cursor.execute("""INSERT OR REPLACE INTO tournament_settings 
-                            (tournament_id, current_round) 
-                            VALUES (?, ?)""",
-                        (tournament_id, round_number))
+                            (current_round) 
+                            VALUES (?)""",
+                        (round_number,))
             conn.commit()
             
             return {"status": "success", "currentRound": round_number}
@@ -869,9 +866,9 @@ def register_api_routes(app):
         
         try:
             cursor.execute("""INSERT OR REPLACE INTO table_passwords 
-                            (tournament_id, table_id, password) 
-                            VALUES (?, ?, ?)""",
-                        (tournament_id, table_id, password))
+                            (table_id, password) 
+                            VALUES (?, ?)""",
+                        (table_id, password))
             conn.commit()
             
             return {"status": "success", "message": "Password set successfully"}
@@ -895,8 +892,8 @@ def register_api_routes(app):
         
         try:
             t_cursor.execute("""SELECT password FROM table_passwords 
-                            WHERE tournament_id = ? AND table_id = ?""",
-                        (tournament_id, table_id))
+                            WHERE table_id = ?""",
+                        (table_id,))
             result = t_cursor.fetchone()
         finally:
             t_conn.close()
@@ -948,8 +945,8 @@ def register_api_routes(app):
         
         try:
             cursor.execute("""SELECT id FROM table_passwords 
-                            WHERE tournament_id = ? AND table_id = ?""",
-                        (tournament_id, table_id))
+                            WHERE table_id = ?""",
+                        (table_id,))
             result = cursor.fetchone()
             
             return {"hasPassword": result is not None}
@@ -973,8 +970,8 @@ def register_api_routes(app):
         try:
             # Check if table requires password
             cursor.execute("""SELECT id FROM table_passwords 
-                            WHERE tournament_id = ? AND table_id = ?""",
-                        (tournament_id, table_id))
+                            WHERE table_id = ?""",
+                        (table_id,))
             result = cursor.fetchone()
             
             if result:
@@ -1064,15 +1061,15 @@ def register_api_routes(app):
         
         try:
             # Validate that all scores for current round are entered
-            cursor.execute("""SELECT COUNT(*) FROM rounds WHERE tournament_id = ? AND round_number = ?""",
-                        (tournament_id, current_round))
+            cursor.execute("""SELECT COUNT(*) FROM rounds WHERE round_number = ?""",
+                        (current_round,))
             total_matches = cursor.fetchone()[0]
             
             expected_results = total_matches * boards_per_round
             
             cursor.execute("""SELECT COUNT(*) FROM board_results 
-                            WHERE tournament_id = ? AND round_number = ?""",
-                        (tournament_id, current_round))
+                            WHERE round_number = ?""",
+                        (current_round,))
             actual_results = cursor.fetchone()[0]
             
             if actual_results < expected_results:
@@ -1097,20 +1094,20 @@ def register_api_routes(app):
                 if movement_type == 'round-robin' and tournament_form == 'teams':
                     pass
                 else:
-                    for table_num, (entry1, entry2) in enumerate(round_matchups, start=1):
+                    for table_id, (entry1, entry2) in enumerate(round_matchups, start=1):
                         start_board = (new_round - 1) * boards_per_round + 1
                         end_board = new_round * boards_per_round
                         boards = f"{start_board}-{end_board}"
 
                         cursor.execute("""INSERT INTO rounds 
-                                        (tournament_id, round_number, table_number, entry1_id, entry2_id, boards, status)
-                                        VALUES (?, ?, ?, ?, ?, ?, 'pending')""",
-                                    (tournament_id, new_round, table_num, entry1, entry2, boards))
+                                        (round_number, table_id, entry1_id, entry2_id, boards, status)
+                                        VALUES (?, ?, ?, ?, ?, 'pending')""",
+                                    (new_round, table_id, entry1, entry2, boards))
 
                 cursor.execute("""INSERT OR REPLACE INTO tournament_settings 
-                            (tournament_id, current_round)
-                            VALUES (?, ?)""",
-                        (tournament_id, new_round))
+                            (current_round)
+                            VALUES (?)""",
+                        (new_round,))
                 conn.commit()
                 return {
                     "status": "success",
@@ -1162,14 +1159,14 @@ def register_api_routes(app):
         
         try:
             # Get all tables for this round
-            cursor.execute("""SELECT table_number, boards FROM rounds 
-                            WHERE tournament_id = ? AND round_number = ?""",
-                          (tournament_id, round_number))
+            cursor.execute("""SELECT table_id, boards FROM rounds 
+                             WHERE round_number = ?""",
+                          (round_number,))
             tables = cursor.fetchall()
             
             filled_count = 0
             
-            for table_number, boards_str in tables:
+            for table_id, boards_str in tables:
                 # Parse board numbers
                 if '-' in boards_str:
                     start, end = map(int, boards_str.split('-'))
@@ -1180,9 +1177,9 @@ def register_api_routes(app):
                 for board_number in board_numbers:
                     # Check if board already has a result
                     cursor.execute("""SELECT id FROM board_results 
-                                    WHERE tournament_id = ? AND table_id = ? 
+                                    WHERE table_id = ? 
                                     AND round_number = ? AND board_number = ?""",
-                                  (tournament_id, table_number, round_number, board_number))
+                                  (table_id, round_number, board_number))
                     
                     if cursor.fetchone():
                         continue  # Board already has a result
@@ -1226,31 +1223,23 @@ def register_api_routes(app):
                     
                     # Generate result: 60% made, 40% down
                     if random.random() < 0.6:
-                        # Made: level or level + overtricks (0-3)
-                        result = level + random.randint(0, 3)
+                        # Made: level
+                        result = random.randint(level, 13)
                     else:
-                        # Down: -1 to -4
-                        result = random.randint(-4, -1)
-                    
-                    # Calculate score
-                    vulnerability_str = 'v' if vulnerable else 'n'
-                    score_input = f"{contract} {vulnerability_str} {result}"
-                    
+                        # Down
+                        result = random.randint(-(level + 6), -1)
+                        
                     try:
-                        score = calculate_bridge_score(score_input)
+                        score = calculate_bridge_score(contract, vulnerable, result)
                     except:
-                        # If invalid, try a simpler contract
-                        contract = f"{level}{suit}"
-                        result = level
-                        score_input = f"{contract} {vulnerability_str} {result}"
-                        score = calculate_bridge_score(score_input)
-                    
+                        raise HTTPException(status_code=500, detail="Error in fill_all_boards")
+
                     # Insert the result
                     cursor.execute("""INSERT INTO board_results 
-                                    (tournament_id, table_id, round_number, board_number, 
+                                    (table_id, round_number, board_number, 
                                      contract, declarer, vulnerable, result, score)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                                  (tournament_id, table_number, round_number, board_number,
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                  (table_id, round_number, board_number,
                                    contract, declarer, vulnerable, result, score))
                     filled_count += 1
             

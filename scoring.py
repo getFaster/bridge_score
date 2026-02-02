@@ -9,32 +9,27 @@ class Vul(Enum):
     EW = 2
     ALL = 3
 
-def calculate_bridge_score(result: str) -> int:
+def calculate_bridge_score(contract: str, vulnerable: bool, tricks: int) -> int:
     """
     Calculate the score for a bridge contract result.
     
     Args:
-        score_input = f"{contract} {vulnerability_str} {result}"
         contract (str): Contract in the format "<level><suit><doubles>"
                         e.g., "4H", "3NTX", "5DX"
-        vulnerability_str (str): 'v' for vulnerable, 'n' for not vulnerable
-        result >= <level>: level made
-        result <= -1: undertricks (negative)
+        vulnerable (bool): True if vulnerable, False otherwise
+        tricks (int): Number of tricks made (>= level) or undertricks (<= -1)
     
     Returns:
         int: The score for the contract
     """
-    parts = result.strip().split()
-    if len(parts) != 3:
-        assert False, "Invalid input format. Expected format: '<contract> <vulnerability> <tricks made/undertricks>'"
-    
-    contract_str, vulnerability, tricks_str = parts
+    if not (contract and vulnerable is not None and isinstance(tricks, int)): 
+        assert False, "Invalid input format. Expected format: '<contract> <vulnerability> <tricks made/undertricks>'"    
     
     # Parse contract
     # Support for doubled (X) and redoubled (XX) contracts
-    m = re.match(r"(\d+)(NT|[CDHS])(X{0,2})", contract_str.upper())
+    m = re.match(r"(\d+)(NT|[CDHS])(X{0,2})", contract.upper())
     if not m:
-        assert False, "Invalid contract format: {}".format(contract_str)
+        assert False, "Invalid contract format: {}".format(contract)
     level = int(m.group(1))
     suit = m.group(2)
     dbl = m.group(3)
@@ -48,13 +43,8 @@ def calculate_bridge_score(result: str) -> int:
         multiplier = 1
     
     # Parse tricks made (overtricks or undertricks)
-    tricks = int(tricks_str)
     assert tricks >= level or tricks <= -1, \
-            "Invalid tricks for contract {}: {}".format(contract_str, tricks)
-
-    
-    # Determine if vulnerable
-    vulnerable = vulnerability.lower() in ['v', 'vul']
+            "Invalid tricks for contract {}: {}".format(contract, tricks)
         
     # Contract made (tricks_taken is total tricks)
     if tricks >= level:
