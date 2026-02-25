@@ -69,27 +69,6 @@ def handle_rotation(num_entries: int, new_round: int) -> list:
 
 def register_api_routes(app):
     """Register all API routes with the FastAPI app."""
-    """    
-    @app.post("/api/scores")
-    async def get_scores(request: Request, auth: dict = Depends(verify_token)):
-        """"""Submit board scores - requires authentication.""""""
-        data = await request.json()
-        name = data.get('name')
-        score = data.get('score')
-        
-        tournament_id = auth['tournament_id']
-        conn = get_tournament_conn(tournament_id)
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute("INSERT INTO scores (name, score) VALUES (?, ?)", (name, score))
-            conn.commit()
-        finally:
-            conn.close()
-
-        print(f"Name: {name}, Score: {score} (Table {auth['table_id']})")
-        return {"status": "success", "name": name, "score": score}
-    """
 
     @app.post("/api/tournament/setup")
     async def setup_tournament(request: Request):
